@@ -307,7 +307,7 @@ ptyprocess==0.7.0
     # via pexpect
 py-serializable==2.0.0
     # via cyclonedx-python-lib
-py-spy==0.4.0
+py-spy==0.4.1
     # via testproject (pyproject.toml)
 pycparser==2.22
     # via cffi
