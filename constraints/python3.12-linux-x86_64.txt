@@ -169,7 +169,7 @@ license-expression==30.4.3
     # via cyclonedx-python-lib
 load-dotenv==0.1.0
     # via testproject (pyproject.toml)
-markdown==3.8.2
+markdown==3.9
     # via
     #   mkdocs
     #   mkdocs-material
