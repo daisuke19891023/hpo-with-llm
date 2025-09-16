@@ -1,0 +1,28 @@
+application:
+  name: FileHandlerApp
+  version: 1.2.3
+  environment: testing
+  
+server:
+  host: localhost
+  port: 8080
+  ssl: false
+  workers: 4
+  
+database:
+  type: postgresql
+  connection:
+    host: db.example.com
+    port: 5432
+    database: testdb
+    pool_size: 10
+    
+features:
+  - authentication
+  - file_upload
+  - async_processing
+  
+unicode_test:
+  japanese: ファイルハンドラーテスト
+  chinese: 文件处理器测试
+  korean: 파일 핸들러 테스트

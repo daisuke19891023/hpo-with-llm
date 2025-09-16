@@ -1,0 +1,19 @@
+{
+  "project": "File Handler Test",
+  "metadata": {
+    "version": "2.1.0",
+    "author": "Test Author",
+    "created": "2025-01-01"
+  },
+  "settings": {
+    "encoding": "utf-8",
+    "timeout": 30,
+    "retries": 3,
+    "features": ["logging", "validation", "caching"]
+  },
+  "unicode_samples": {
+    "japanese": "これはテストです",
+    "emoji": "🎉🚀💻",
+    "european": "Übung macht den Meister"
+  }
+}

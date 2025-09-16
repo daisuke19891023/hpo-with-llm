@@ -1,0 +1,171 @@
+name: Claude Code
+
+# 注意: 2025-07-20時点で、claude-code-action@betaはClaude CLIが
+# インストールされていないためエラーになります。
+# Anthropicが修正するまで、このワークフローは動作しません。
+# 手動でClaude Codeを使用するか、修正版のリリースを待ってください。
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv environment
+        run: |
+          uv venv
+          source .venv/bin/activate
+          uv pip install -e .
+          uv sync
+          # Install dev dependencies
+          uv sync --extra dev
+
+      - name: Install pre-commit hooks
+        run: |
+          source .venv/bin/activate
+          # Install pre-commit hooks for Claude to use
+          if [ -f .pre-commit-config.yaml ]; then
+            uv run pre-commit install
+            echo "Pre-commit hooks installed successfully"
+          else
+            echo "No .pre-commit-config.yaml found, skipping pre-commit setup"
+          fi
+
+
+      - name: Make tools available globally
+        run: |
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "$(pwd)/.venv/bin" >> $GITHUB_PATH
+          echo "/usr/local/bin" >> $GITHUB_PATH
+          # Add npm global bin to PATH
+          echo "$(npm config get prefix)/bin" >> $GITHUB_PATH
+          # Ensure executables have proper permissions
+          chmod +x .venv/bin/* || true
+
+      - name: Verify tool availability
+        run: |
+          echo "=== PATH ==="
+          echo $PATH
+          echo "=== which uv ==="
+          which uv || echo "uv not found"
+          echo "=== which nox ==="
+          which nox || echo "nox not found"
+          echo "=== uv version ==="
+          uv --version || echo "uv command failed"
+          echo "=== nox version ==="
+          nox --version || echo "nox command failed"
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          
+          # Timeout setting
+          timeout_minutes: "60"
+
+          # This is an optional setting that allows Claude to read CI results on PRs
+          additional_permissions: |
+            actions: read
+          
+          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
+          model: "claude-opus-4-20250514"
+          
+          # Optional: Customize the trigger phrase (default: @claude)
+          # trigger_phrase: "/claude"
+          
+          # Optional: Trigger when specific user is assigned to an issue
+          # assignee_trigger: "claude-bot"
+          
+          # Optional: Allow Claude to run specific commands
+          allowed_tools: |
+            WebFetch(domain:github.com)
+            Bash(mkdir *)
+            Bash(nox *)
+            Bash(uv *)
+            Bash(uv sync *)
+            Bash(uv venv *)
+            Bash(uv run *)
+            Bash(python *)
+            Bash(pytest *)
+            Bash(ruff *)
+            Bash(pyright *)
+            Bash(source *)
+            Bash(deactivate)
+            Bash(grep *)
+            Bash(ls *)
+            Bash(rm *)
+            Bash(cp *)
+            Bash(chmod *)
+            Bash(touch *)
+            Bash(find *)
+            Bash(npm install)
+            Bash(npm run *)
+            Bash(git add *)
+            Bash(git commit *)
+            Bash(git pull *)
+            Bash(git push *)
+            Bash(git update-index *)
+            Edit
+            Write
+            MultiEdit
+            LS
+            Grep
+            Glob
+          
+          # Deny dangerous operations
+          denied_tools: |
+            Bash(git push --force*)
+            Bash(git push -f*)
+            Bash(rm -rf *)
+            Bash(rm -r -f *)
+            Bash(rm -f -r *)
+            Bash(sudo rm *)
+
+          # Optional: Add custom instructions for Claude to customize its behavior for your project
+          # custom_instructions: |
+          #   Follow our coding standards
+          #   Ensure all new code has tests
+          #   Use TypeScript for new files
+          
+          # Optional: Custom environment variables for Claude
+          claude_env: |
+            PATH: ${{ github.workspace }}/.venv/bin:$HOME/.local/bin:/usr/local/bin:$PATH
+            PYTHONPATH: ${{ github.workspace }}
+            BASH_MAX_TIMEOUT_MS: 3600000
+            DISABLE_TELEMETRY: 1
+            MAX_THINKING_TOKENS: 31999
+

@@ -1,0 +1,20 @@
+UTF-8 Text File Sample
+======================
+
+This file contains various UTF-8 encoded characters to test file handling capabilities.
+
+Special Characters:
+- Currency: €, £, ¥, ₹
+- Accented: á, é, í, ó, ú, ñ, ç, ü, ö
+- Greek: α, β, γ, δ, ε, θ, λ, π, σ, ω
+- Math: ∑, ∏, √, ∞, ≈, ≠, ≤, ≥, ∈, ∉
+
+Asian Languages:
+- Japanese: こんにちは世界 (Hello World)
+- Chinese: 你好世界 (Hello World)
+- Korean: 안녕하세요 세계 (Hello World)
+
+Emoji Support:
+🌍 🌎 🌏 🚀 💻 📁 📝 ✅ ❌ ⚡
+
+End of UTF-8 test file.

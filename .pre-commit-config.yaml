@@ -1,0 +1,80 @@
+# pre-commit configuration
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+default_language_version:
+  python: python3.13
+
+repos:
+  # All hooks use nox to ensure consistency with project configuration
+  - repo: local
+    hooks:
+      # Ruff formatter - must run before ruff linter
+      - id: ruff-format
+        name: Format code with ruff (via nox)
+        entry: nox -s format_code --
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false
+
+      # Ruff linter
+      - id: ruff-lint
+        name: Lint with ruff (via nox)
+        entry: nox -s lint --
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false
+
+      # Pyright type checker
+      - id: pyright
+        name: Type check with pyright (via nox)
+        entry: nox -s typing --
+        language: system
+        types: [python]
+        pass_filenames: false
+        # Only run on src directory to avoid checking test files without proper context
+        files: ^src/
+
+# Global exclusions
+exclude: |
+  (?x)^(
+    .bzr/|
+    .direnv/|
+    .eggs/|
+    .git/|
+    .git-rewrite/|
+    .hg/|
+    .ipynb_checkpoints/|
+    .mypy_cache/|
+    .nox/|
+    .pants.d/|
+    .pyenv/|
+    .pytest_cache/|
+    .pytype/|
+    .ruff_cache/|
+    .svn/|
+    .tox/|
+    .venv/|
+    .vscode/|
+    __pypackages__/|
+    _build/|
+    buck-out/|
+    build/|
+    dist/|
+    node_modules/|
+    site-packages/|
+    venv/|
+    docs/build/|
+    site/|
+    example_usage.py
+  )
+
+# Configure pre-commit itself
+ci:
+  autofix_prs: true
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit.com hooks
+
+    for more information, see https://pre-commit.ci
+  autoupdate_schedule: weekly
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'

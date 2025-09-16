@@ -1,0 +1,164 @@
+[project]
+name = "clean-interfaces"
+version = "0.1.0"
+description = "A test project for verification"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.9.2",
+    "pydantic-settings>=2.9.1",
+    "pyyaml>=6.0.2",
+    "structlog>=24.1.0",
+    "fastapi>=0.116.1",
+    "uvicorn>=0.30.0",
+    "typer>=0.16.0",
+    "fastmcp>=2.12.2",
+] # Populated by user or later steps if needed
+
+[project.scripts]
+clean-interfaces = "clean_interfaces.main:main"
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=8.1.2",
+    "mkdocs-material>=9.5.0",
+]
+dev = [
+    "nox>=2024.10.9",
+    "ruff>=0.6.9",
+    "pyright>=1.1.402",
+    "pip-audit>=2.7.1",
+    "pytest>=8.3.3",
+    "pytest-cov>=5.0.0",
+    "freezegun>=1.5.1",
+    "pytest-mock>=3.14.0",
+    "pytest-xdist>=3.5.0",
+    "responses>=0.25.3",
+    "pexpect>=4.9.0",
+    "pytest-asyncio>=0.23.0",
+    "diff-cover>=8.0.0",
+    "commitizen>=3.20.0",
+    "python-semantic-release>=8.10.0",
+    "py-spy>=0.3.0",
+    "scalene>=1.5.0",
+    "hatch>=1.8.0",
+    "pdm>=2.12.0",
+    "pre-commit>=4.2.0",
+]
+
+[tool.uv]
+# Development dependencies are now in [project.optional-dependencies.dev]
+# Use 'uv pip install -e .[dev]' or 'uv sync --extra dev' to install them
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+line-length = 88
+indent-width = 4
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+     "D100", "D203", "D213", "D300",
+     "I001",  # Import sorting conflicts between tools - let ruff-format handle it
+     "ANN401",  # Any types needed for structlog compatibility
+     "FBT001", "FBT002",  # Boolean arguments acceptable for config functions
+     "PLR0913",  # Many arguments acceptable for config functions
+     "S110",  # Exception handling in optional imports is acceptable
+     "BLE001",  # Broad exception handling needed for optional dependencies
+     "PLC0415",  # Conditional imports needed for optional dependencies
+     "TRY400",  # Use logger.error instead of logger.exception for structlog compatibility
+     "EXE001",  # Shebang present but file not executable (Git permission sync issues)
+     "EXE002",  # File is executable but no shebang (permission issues in container)
+     "N802",  # Allow uppercase function names for HTTP handler methods (do_POST, do_GET)
+ ]
+ # Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "PLR2004", "TRY003", "EM101"]
+"tests/helpers/pexpect_debug.py" = ["T201", "TRY300"]
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+
+[tool.pyright]
+include = ["src", "noxfile.py", "tests"]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    ".venv",
+    "venv",
+    ".nox",
+    "build",
+    "dist",
+]
+stubPath = "typings"
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "strict"
+useLibraryCodeForTypes = true
+reportMissingImports = true
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-v -ra --strict-markers" # This will be replaced by setup.sh
+markers = [
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+  "integration: marks integration tests",
+  "asyncio: marks tests as asyncio"
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+]
+
+# [dependency-groups] section removed - all dev dependencies are in [project.optional-dependencies.dev]
+

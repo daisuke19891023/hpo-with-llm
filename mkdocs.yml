@@ -1,0 +1,74 @@
+site_name: Clean Interfaces
+site_description: A flexible Python application framework with multiple interface types
+site_author: Daisuke Okamoto
+site_url: https://your-github-username.github.io/clean-interfaces/
+
+repo_name: your-github-username/clean-interfaces
+repo_url: https://github.com/your-github-username/clean-interfaces
+edit_uri: edit/main/docs/
+
+theme:
+  name: readthedocs
+  highlightjs: true
+  hljs_languages:
+    - python
+    - yaml
+    - json
+
+plugins:
+  - search
+  # - mkdocstrings:
+  #     handlers:
+  #       python:
+  #         options:
+  #           show_source: true
+  #           show_bases: true
+  #           show_root_heading: true
+  #           show_root_full_path: false
+  #           docstring_style: google
+  #           merge_init_into_class: true
+  #           show_signature_annotations: true
+  #           separate_signature: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - Quick Start: quickstart.md
+      - Configuration: configuration.md
+  - User Guide:
+      - CLI Interface: guides/cli.md
+      - REST API Interface: guides/restapi.md
+      - MCP Interface: guides/mcp.md
+      - Logging: guides/logging.md
+      - Environment Variables: guides/environment.md
+  - API Reference:
+      - Overview: api/overview.md
+      - Application: api/app.md
+      - Interfaces: api/interfaces.md
+      - Models: api/models.md
+      - Utilities: api/utils.md
+  - Development:
+      - Contributing: development/contributing.md
+      - Testing: development/testing.md
+      - Code Style: development/code-style.md
+  - About:
+      - License: about/license.md
+      - Changelog: about/changelog.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/your-github-username/clean-interfaces
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/clean-interfaces/
+  version:
+    provider: mike
+
+copyright: Copyright &copy; 2025 Daisuke Okamoto 

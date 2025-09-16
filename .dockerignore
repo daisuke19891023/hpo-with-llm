@@ -1,0 +1,5 @@
+.vscode
+.nox
+.venv
+__pycache__
+tests 

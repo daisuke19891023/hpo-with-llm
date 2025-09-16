@@ -1,0 +1,81 @@
+{
+  "editor.insertSpaces": true,
+  "editor.tabSize": 4,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "search.exclude": {
+    "**/.venv": true,
+    "**/__pycache__": true,
+    "**/*.egg-info": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true
+  },
+  "editor.renderWhitespace": "all",
+  "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.packageManager": "uv",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.vscode-pylance",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    }
+  },
+  "python.testing.pytestArgs": [
+    "tests",
+    "--capture=tee-sys",
+    "-vv"
+  ],
+  "python.testing.pytestEnabled": true,
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.inlayHints.functionReturnTypes": true,
+  "python.analysis.inlayHints.pytestParameters": true,
+  "python.analysis.inlayHints.variableTypes": true,
+  "python.analysis.typeCheckingMode": "basic",
+  "coverage-gutters.showLineCoverage": true,
+  "coverage-gutters.showRulerCoverage": true,
+  "coverage-gutters.coverageFileNames": [
+    ".pytest_cache/coverage.xml"
+  ],
+  "autoDocstring.docstringFormat": "google",
+  "autoDocstring.guessTypes": true,
+  "autoDocstring.generateDocstringOnEnter": true,
+  "autoDocstring.quoteStyle": "\"\"\"" ,
+  "[json][jsonrc]": {
+    "editor.quickSuggestions": {
+      "strings": true
+    },
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit"
+    },
+    "gitlens.codeLens.scopes": [
+      "document"
+    ]
+  },
+  "[toml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+          "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "bash",
+            "icon": "terminal-bash"
+          },
+          "zsh": {
+            "path": "zsh"
+          }
+        },
+        "files.associations": {
+          "*.yml": "yaml",
+          "*.yaml": "yaml",
+          "*.toml": "toml"
+        }
+}

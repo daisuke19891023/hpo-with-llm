@@ -1,0 +1,95 @@
+# GitLab CI configuration
+# This configuration mirrors the GitHub Actions CI workflow for compatibility
+
+image: python:3.12
+
+stages:
+  - test
+  - docs
+
+variables:
+  # Disable pip cache and use uv for faster builds
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  # Set uv cache directory
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+
+# Cache configuration for faster builds
+cache:
+  key: "${CI_COMMIT_REF_SLUG}"
+  paths:
+    - .cache/pip
+    - .cache/uv
+    - .venv/
+
+# Install uv and dependencies
+.install_dependencies: &install_dependencies
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install uv
+    - uv sync --extra dev
+
+# Main CI job - runs all quality checks
+test:
+  stage: test
+  <<: *install_dependencies
+  script:
+    # Run linting with Ruff
+    - nox -s lint
+    # Sort imports with Ruff
+    - nox -s sort
+    # Run formatting check
+    - nox -s format_code
+    # Run type checking with Pyright
+    - nox -s typing
+    # Run tests with pytest and coverage
+    - nox -s test
+    # Run security checks
+    - nox -s security
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - htmlcov/
+    expire_in: 1 week
+  rules:
+    # Run on main and develop branches
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    # Run on merge requests
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# Documentation build job
+docs:
+  stage: docs
+  needs:
+    - test
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install uv
+    - uv sync --all-extras
+  script:
+    - nox -s docs
+  artifacts:
+    paths:
+      - site/
+    expire_in: 1 week
+  rules:
+    # Run on main and develop branches
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    # Run on merge requests
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# Additional job for running all checks at once (equivalent to nox -s ci)
+ci_all:
+  stage: test
+  <<: *install_dependencies
+  script:
+    - nox -s ci
+  allow_failure: false
+  rules:
+    # Only run this comprehensive check on main branch
+    - if: $CI_COMMIT_BRANCH == "main"
