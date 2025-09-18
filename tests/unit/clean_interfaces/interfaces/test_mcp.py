@@ -1,5 +1,7 @@
 """Tests for MCP interface implementation."""
 
+from collections.abc import Sequence
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,6 +35,7 @@ class TestMCPInterface:
         mcp = MCPInterface()
         tools = await mcp.mcp.get_tools()
         assert "welcome" in tools
+        assert "reflect_hpo" in tools
 
     @patch("fastmcp.FastMCP.run")
     def test_mcp_run_method(self, mock_run: MagicMock) -> None:
@@ -40,3 +43,20 @@ class TestMCPInterface:
         mcp = MCPInterface()
         mcp.run()
         mock_run.assert_called_once()
+
+    def test_mcp_reflect_tool_returns_payload(self) -> None:
+        """Ensure the reflect_hpo tool executes an optimisation loop."""
+        mcp = MCPInterface()
+        payload = mcp.reflect_hpo(
+            task_description="Tune prompts",
+            mode="baseline",
+            max_trials=1,
+            direction="maximize",
+        )
+
+        assert isinstance(payload, dict)
+        reflection = cast(dict[str, Any], payload["reflection"])
+        assert reflection["mode"] == "baseline"
+        assert "summary" in reflection
+        trials = cast(Sequence[Any], payload["trials"])
+        assert len(list(trials)) > 0

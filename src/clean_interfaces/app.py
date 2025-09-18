@@ -8,6 +8,18 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from clean_interfaces.hpo.backends import HPOSearchBackend, InMemorySearchBackend
+from clean_interfaces.hpo.logging import HPOTrialLogger
+from clean_interfaces.hpo.orchestrator import HPOOrchestrator, TrialExecutorProtocol
+from clean_interfaces.hpo.reflection import ReflectionAgent
+from clean_interfaces.hpo.schemas import (
+    HPOExecutionRequest,
+    HPOOptimizationResult,
+    HPOReflectionRequest,
+    HPOReflectionResponse,
+    ReflectionMode,
+)
+from clean_interfaces.llm import LLMClientFactory
 from clean_interfaces.interfaces.factory import InterfaceFactory
 from clean_interfaces.utils.logger import configure_logging, get_logger
 from clean_interfaces.utils.settings import get_interface_settings, get_settings
@@ -63,6 +75,94 @@ class Application:
             raise
         finally:
             self.logger.info("Application shutting down")
+
+    def create_hpo_orchestrator(
+        self,
+        trial_executor: TrialExecutorProtocol,
+        backend: HPOSearchBackend | None = None,
+        trial_logger: HPOTrialLogger | None = None,
+    ) -> HPOOrchestrator:
+        """Create an HPO orchestrator using application defaults."""
+        return create_hpo_orchestrator(
+            trial_executor=trial_executor,
+            backend=backend,
+            trial_logger=trial_logger,
+        )
+
+    def create_reflection_agent(
+        self, *, llm_factory: LLMClientFactory | None = None,
+    ) -> ReflectionAgent:
+        """Create a reflection agent with default configuration."""
+        return create_reflection_agent(llm_factory=llm_factory)
+
+
+def create_hpo_orchestrator(
+    *,
+    trial_executor: TrialExecutorProtocol,
+    backend: HPOSearchBackend | None = None,
+    trial_logger: HPOTrialLogger | None = None,
+) -> HPOOrchestrator:
+    """Construct a configured HPO orchestrator."""
+    selected_backend = backend or InMemorySearchBackend()
+    return HPOOrchestrator(
+        search_backend=selected_backend,
+        trial_executor=trial_executor,
+        trial_logger=trial_logger,
+    )
+
+
+def create_reflection_agent(
+    llm_factory: LLMClientFactory | None = None,
+) -> ReflectionAgent:
+    """Construct the default reflection agent."""
+    return ReflectionAgent(llm_factory=llm_factory)
+
+
+def run_hpo_experiment(
+    request: HPOExecutionRequest,
+    *,
+    trial_executor: TrialExecutorProtocol,
+    backend: HPOSearchBackend | None = None,
+    trial_logger: HPOTrialLogger | None = None,
+) -> HPOOptimizationResult:
+    """Execute a full HPO experiment for the provided request."""
+    orchestrator = create_hpo_orchestrator(
+        trial_executor=trial_executor,
+        backend=backend,
+        trial_logger=trial_logger,
+    )
+    return orchestrator.optimize(
+        task=request.task,
+        search_space=request.search_space,
+        config=request.config,
+    )
+
+
+def run_hpo_with_reflection(
+    request: HPOExecutionRequest,
+    *,
+    trial_executor: TrialExecutorProtocol,
+    backend: HPOSearchBackend | None = None,
+    mode: ReflectionMode = ReflectionMode.BASELINE,
+    trial_logger: HPOTrialLogger | None = None,
+) -> tuple[HPOOptimizationResult, HPOReflectionResponse]:
+    """Execute an HPO experiment and produce a reflection summary."""
+    result = run_hpo_experiment(
+        request,
+        trial_executor=trial_executor,
+        backend=backend,
+        trial_logger=trial_logger,
+    )
+    agent = create_reflection_agent()
+    reflection_request = HPOReflectionRequest(
+        task=request.task,
+        config=request.config,
+        search_space=request.search_space,
+        history=result.trials,
+        mode=mode,
+    )
+    reflection = agent.reflect(reflection_request)
+    return result, reflection
 
 
 def create_app(dotenv_path: Path | None = None) -> Application:

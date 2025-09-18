@@ -4,7 +4,26 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from clean_interfaces.app import Application, create_app, run_app
+from clean_interfaces.app import (
+    Application,
+    create_app,
+    create_hpo_orchestrator,
+    create_reflection_agent,
+    run_app,
+    run_hpo_experiment,
+    run_hpo_with_reflection,
+)
+from clean_interfaces.hpo.backends import InMemorySearchBackend
+from clean_interfaces.hpo.schemas import (
+    CodingTask,
+    HPOExecutionRequest,
+    HPORunConfig,
+    HPOTrialRequest,
+    HPOTrialResponse,
+    HyperparameterSpec,
+    HyperparameterType,
+    ReflectionMode,
+)
 
 
 class TestApplication:
@@ -164,6 +183,78 @@ class TestApplication:
 
         # Verify interface was run
         mock_interface.run.assert_called_once()
+
+    def test_create_hpo_orchestrator_helper(self) -> None:
+        """The helper should build an orchestrator with the default backend."""
+
+        def executor(request: HPOTrialRequest) -> HPOTrialResponse:  # noqa: ARG001
+            return HPOTrialResponse(score=1.0)
+
+        orchestrator = create_hpo_orchestrator(trial_executor=executor)
+        assert orchestrator is not None
+
+    def test_create_reflection_agent_helper(self) -> None:
+        """The helper should build a reflection agent instance."""
+        agent = create_reflection_agent()
+
+        from clean_interfaces.hpo.reflection import ReflectionAgent
+
+        assert isinstance(agent, ReflectionAgent)
+
+    def test_run_hpo_experiment_helper(self) -> None:
+        """The helper should execute an optimization run end-to-end."""
+        request = HPOExecutionRequest(
+            task=CodingTask(task_id="helper", description="Demo task"),
+            search_space=[
+                HyperparameterSpec(
+                    name="temperature",
+                    param_type=HyperparameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ],
+            config=HPORunConfig(max_trials=2),
+        )
+
+        def executor(request: HPOTrialRequest) -> HPOTrialResponse:  # noqa: ARG001
+            return HPOTrialResponse(score=0.5)
+
+        result = run_hpo_experiment(
+            request,
+            trial_executor=executor,
+            backend=InMemorySearchBackend(),
+        )
+
+        assert result.trials
+
+    def test_run_hpo_with_reflection_helper(self) -> None:
+        """The helper should return both optimisation results and reflection."""
+        request = HPOExecutionRequest(
+            task=CodingTask(task_id="reflect", description="Demo task"),
+            search_space=[
+                HyperparameterSpec(
+                    name="temperature",
+                    param_type=HyperparameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ],
+            config=HPORunConfig(max_trials=1),
+        )
+
+        def executor(request: HPOTrialRequest) -> HPOTrialResponse:  # noqa: ARG001
+            return HPOTrialResponse(score=0.6)
+
+        result, reflection = run_hpo_with_reflection(
+            request,
+            trial_executor=executor,
+            backend=InMemorySearchBackend(),
+            mode=ReflectionMode.BASELINE,
+        )
+
+        assert result.trials
+        assert reflection.summary
+        assert reflection.mode is ReflectionMode.BASELINE
 
     @patch("clean_interfaces.app.load_dotenv")
     @patch("clean_interfaces.app.configure_logging")

@@ -7,7 +7,7 @@ with support for environment variables and validation.
 from enum import Enum
 from typing import Any, ClassVar, Literal
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -191,3 +191,123 @@ def reset_interface_settings() -> None:
     This is mainly useful for testing.
     """
     InterfaceSettings.instance = None
+
+
+class LLMProvider(str, Enum):
+    """Supported LLM providers."""
+
+    OPENAI = "openai"
+    AZURE_OPENAI = "azure_openai"
+
+
+class LLMSettings(BaseSettings):
+    """Configuration for LLM access retrieved from environment variables."""
+
+    instance: ClassVar[Any] = None
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    provider: LLMProvider = Field(
+        default=LLMProvider.OPENAI,
+        validation_alias=AliasChoices("LLM_PROVIDER", "provider"),
+        description="Which LLM provider to use for requests.",
+    )
+    model: str = Field(
+        default="gpt-4o-mini",
+        validation_alias=AliasChoices("LLM_MODEL", "model"),
+        description="Default model or deployment name to target.",
+    )
+    temperature: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=2.0,
+        validation_alias=AliasChoices("LLM_TEMPERATURE", "temperature"),
+        description="Default sampling temperature used for generations.",
+    )
+    max_output_tokens: int = Field(
+        default=512,
+        ge=1,
+        validation_alias=AliasChoices(
+            "LLM_MAX_OUTPUT_TOKENS",
+            "LLM_MAX_TOKENS",
+            "max_output_tokens",
+        ),
+        description="Default maximum number of output tokens to request.",
+    )
+    openai_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "OPENAI_API_KEY",
+            "LLM_OPENAI_API_KEY",
+            "openai_api_key",
+        ),
+        description="API key used for the OpenAI provider.",
+    )
+    openai_base_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "OPENAI_BASE_URL",
+            "LLM_OPENAI_BASE_URL",
+            "openai_base_url",
+        ),
+        description="Optional override for the OpenAI base URL.",
+    )
+    azure_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "AZURE_OPENAI_API_KEY",
+            "LLM_AZURE_OPENAI_API_KEY",
+            "azure_api_key",
+        ),
+        description="API key used for Azure OpenAI deployments.",
+    )
+    azure_endpoint: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "AZURE_OPENAI_ENDPOINT",
+            "LLM_AZURE_OPENAI_ENDPOINT",
+            "azure_endpoint",
+        ),
+        description="Azure OpenAI endpoint URL.",
+    )
+    azure_deployment: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "AZURE_OPENAI_DEPLOYMENT",
+            "LLM_AZURE_OPENAI_DEPLOYMENT",
+            "azure_deployment",
+        ),
+        description="Azure OpenAI deployment name to target.",
+    )
+    azure_api_version: str = Field(
+        default="2024-08-01-preview",
+        validation_alias=AliasChoices(
+            "AZURE_OPENAI_API_VERSION",
+            "LLM_AZURE_OPENAI_API_VERSION",
+            "azure_api_version",
+        ),
+        description="Azure OpenAI API version.",
+    )
+
+    @model_validator(mode="after")
+    def _normalise_provider(self) -> "LLMSettings":
+        """Ensure provider aliases normalise to canonical enum values."""
+        self.provider = LLMProvider(str(self.provider).lower())
+        return self
+
+
+def get_llm_settings() -> LLMSettings:
+    """Return cached LLM settings resolved from the environment."""
+    if LLMSettings.instance is None:
+        LLMSettings.instance = LLMSettings()
+    return LLMSettings.instance
+
+
+def reset_llm_settings() -> None:
+    """Clear cached LLM settings to force a reload on next access."""
+    LLMSettings.instance = None

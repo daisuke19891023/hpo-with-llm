@@ -1,6 +1,6 @@
 """REST API interface implementation using FastAPI."""
 
-from typing import Any
+from typing import Any, cast
 
 import uvicorn
 import uvicorn.config
@@ -8,6 +8,8 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from clean_interfaces.hpo.executors import default_trial_executor
+from clean_interfaces.hpo.schemas import HPOExecutionRequest, HPOExecutionResponse
 from clean_interfaces.models.api import (
     HealthResponse,
     SwaggerAnalysisResponse,
@@ -47,24 +49,67 @@ class RestAPIInterface(BaseInterface):
         """Set up API routes."""
         self.logger.info("Setting up API routes")
 
-        @self.app.get("/", response_class=RedirectResponse)
-        async def root() -> str:  # type: ignore[misc]
-            """Redirect root to API documentation."""
-            return "/docs"  # type: ignore[return-value]
+        app = cast(Any, self.app)
 
-        @self.app.get("/health", response_model=HealthResponse)
-        async def health() -> HealthResponse:  # type: ignore[misc]
+        async def root() -> RedirectResponse:
+            """Redirect root to API documentation."""
+
+            return RedirectResponse(url="/docs")
+
+        app.add_api_route(
+            "/",
+            root,
+            methods=["GET"],
+            response_class=RedirectResponse,
+        )
+
+        async def health() -> HealthResponse:
             """Health check endpoint."""
+
             return HealthResponse()
 
-        @self.app.get("/api/v1/welcome", response_model=WelcomeResponse)
-        async def welcome() -> WelcomeResponse:  # type: ignore[misc]
+        app.add_api_route(
+            "/health",
+            health,
+            methods=["GET"],
+            response_model=HealthResponse,
+        )
+
+        async def welcome() -> WelcomeResponse:
             """Welcome message endpoint."""
+
             return WelcomeResponse()
 
-        @self.app.get("/api/v1/swagger-ui", response_class=HTMLResponse)
-        async def enhanced_swagger_ui() -> str:  # type: ignore[misc]
+        app.add_api_route(
+            "/api/v1/welcome",
+            welcome,
+            methods=["GET"],
+            response_model=WelcomeResponse,
+        )
+
+        async def run_hpo(
+            request: HPOExecutionRequest,
+        ) -> HPOExecutionResponse:
+            """Launch a hyperparameter optimization run."""
+
+            from clean_interfaces.app import run_hpo_experiment
+
+            result = run_hpo_experiment(
+                request,
+                trial_executor=default_trial_executor,
+            )
+            return HPOExecutionResponse(**result.model_dump())
+
+        app.add_api_route(
+            "/api/v1/hpo/run",
+            run_hpo,
+            methods=["POST"],
+            response_model=HPOExecutionResponse,
+        )
+
+        async def enhanced_swagger_ui() -> str:
             """Enhanced Swagger UI with dynamic content generation."""
+
             schema_url = "/api/v1/swagger-ui/schema"
             return f"""<!DOCTYPE html>
 <html lang="en">
@@ -115,9 +160,16 @@ class RestAPIInterface(BaseInterface):
 </body>
 </html>"""
 
-        @self.app.get("/api/v1/swagger-ui/schema")
-        async def swagger_ui_schema() -> dict[str, Any]:  # type: ignore[misc]
+        app.add_api_route(
+            "/api/v1/swagger-ui",
+            enhanced_swagger_ui,
+            methods=["GET"],
+            response_class=HTMLResponse,
+        )
+
+        async def swagger_ui_schema() -> dict[str, Any]:
             """Enhanced OpenAPI schema with dynamic content metadata."""
+
             # Get the base OpenAPI schema from FastAPI
             base_schema = get_openapi(
                 title=self.app.title,
@@ -140,12 +192,15 @@ class RestAPIInterface(BaseInterface):
 
             return base_schema
 
-        @self.app.get(
-            "/api/v1/swagger-ui/analysis",
-            response_model=SwaggerAnalysisResponse,
+        app.add_api_route(
+            "/api/v1/swagger-ui/schema",
+            swagger_ui_schema,
+            methods=["GET"],
         )
-        async def swagger_ui_analysis() -> SwaggerAnalysisResponse:  # type: ignore[misc]
+
+        async def swagger_ui_analysis() -> SwaggerAnalysisResponse:
             """Source code and documentation analysis for Swagger UI."""
+
             # Return mock analysis data
             return SwaggerAnalysisResponse(
                 interfaces=["RestAPIInterface", "CLIInterface"],
@@ -173,6 +228,13 @@ class RestAPIInterface(BaseInterface):
                     "total_endpoints": 6,
                 },
             )
+
+        app.add_api_route(
+            "/api/v1/swagger-ui/analysis",
+            swagger_ui_analysis,
+            methods=["GET"],
+            response_model=SwaggerAnalysisResponse,
+        )
 
     def run(self) -> None:
         """Run the REST API interface."""
