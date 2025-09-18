@@ -106,15 +106,11 @@ def _preference_bonuses(
 
 def _iter_strings(value: object) -> tuple[str, ...]:
     """Return the provided value as a tuple of strings if possible."""
-
     if isinstance(value, str):
         return (value,)
     if isinstance(value, Iterable):
-        strings: list[str] = []
-        for item in cast(Iterable[object], value):
-            if isinstance(item, str):
-                strings.append(item)
-        return tuple(strings)
+        iterable = cast("Iterable[object]", value)
+        return tuple(item for item in iterable if isinstance(item, str))
     return ()
 
 
@@ -354,9 +350,15 @@ def default_trial_executor(request: HPOTrialRequest) -> HPOTrialResponse:
         threshold = detail.get("threshold")
         if not isinstance(identifier, str):
             continue
+        alignment_value = (
+            float(alignment) if isinstance(alignment, (int, float)) else 0.0
+        )
+        threshold_value = (
+            float(threshold) if isinstance(threshold, (int, float)) else 1.0
+        )
         alignment_by_id[identifier] = {
-            "alignment": float(alignment) if isinstance(alignment, (int, float)) else 0.0,
-            "threshold": float(threshold) if isinstance(threshold, (int, float)) else 1.0,
+            "alignment": alignment_value,
+            "threshold": threshold_value,
         }
 
     file_search_predictions: list[FileSearchPrediction] = []

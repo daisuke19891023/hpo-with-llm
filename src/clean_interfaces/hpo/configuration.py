@@ -6,7 +6,8 @@ import copy
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, Sequence, cast
+from typing import TYPE_CHECKING, Any, cast
+from collections.abc import Mapping, Sequence
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -75,7 +76,6 @@ class TuningParameterDefinition(BaseModel):
 
 def _empty_parameter_definitions() -> list[TuningParameterDefinition]:
     """Return an empty parameter definition list with precise typing."""
-
     return []
 
 
@@ -121,7 +121,7 @@ def load_tuning_config(path: str | Path) -> TuningConfig:
 
     content: dict[str, Any]
     if isinstance(loaded, Mapping):
-        mapping = cast(Mapping[str, Any], loaded)
+        mapping = cast("Mapping[str, Any]", loaded)
         content = dict(mapping)
     else:
         content = {}
@@ -181,7 +181,6 @@ class YAMLKeyUpdate:
 
 def _empty_yaml_key_updates() -> list[YAMLKeyUpdate]:
     """Return an empty list for YAML key updates."""
-
     return []
 
 
@@ -258,7 +257,7 @@ class ParameterApplicationPlan:
                 existing_text = instruction.path.read_text(instruction.encoding)
                 loaded_obj = yaml.safe_load(existing_text)
                 if isinstance(loaded_obj, Mapping):
-                    loaded_mapping = cast(Mapping[str, Any], loaded_obj)
+                    loaded_mapping = cast("Mapping[str, Any]", loaded_obj)
                     document = copy.deepcopy(dict(loaded_mapping))
 
             for update in instruction.updates:
@@ -349,7 +348,12 @@ def build_application_plan(
                 encoding=location.encoding,
             )
         else:
-            assert isinstance(location, YAMLConfigParameterLocation)
+            if not isinstance(location, YAMLConfigParameterLocation):
+                msg = (
+                    "Unsupported parameter location encountered during plan "
+                    "construction"
+                )
+                raise TypeError(msg)
             key_path = _split_key_path(location.key_path)
             updates = yaml_updates_map.setdefault(
                 location.path,

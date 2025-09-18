@@ -92,7 +92,7 @@ class EvaluationService(BaseComponent):
         else:
             metadata_weights = dataset.metadata.get("score_weights")
             if isinstance(metadata_weights, Mapping):
-                weights_source = cast(Mapping[str, object], metadata_weights)
+                weights_source = cast("Mapping[str, object]", metadata_weights)
             else:
                 weights_source = None
 

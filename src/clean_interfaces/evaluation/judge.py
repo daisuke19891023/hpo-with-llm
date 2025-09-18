@@ -85,7 +85,6 @@ class LLMJudgeProtocol(Protocol):
         references: Sequence[str],
     ) -> LLMJudgeResult:
         """Evaluate a plan against reference plans and return a score."""
-
         ...
 
 
@@ -294,7 +293,7 @@ def _payload_to_result(payload: Mapping[str, object]) -> LLMJudgeResult:
 
     def _normalise_keywords(value: object) -> tuple[str, ...]:
         if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
-            items = cast(Sequence[object], value)
+            items = cast("Sequence[object]", value)
             return tuple(
                 str(item)
                 for item in items

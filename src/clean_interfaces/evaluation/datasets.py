@@ -124,7 +124,7 @@ class GoldenDataset(BaseModel):
             msg = "Golden dataset file must contain a mapping at the top level"
             raise TypeError(msg)
 
-        mapping = cast(Mapping[str, Any], loaded)
+        mapping = cast("Mapping[str, Any]", loaded)
         return cls.from_mapping(mapping)
 
     def to_dict(self) -> dict[str, Any]:
@@ -151,7 +151,7 @@ def load_default_golden_dataset() -> GoldenDataset:
         msg = "Default golden dataset asset must contain a mapping"
         raise TypeError(msg)
 
-    mapping = cast(Mapping[str, Any], payload)
+    mapping = cast("Mapping[str, Any]", payload)
     return GoldenDataset.from_mapping(mapping)
 
 

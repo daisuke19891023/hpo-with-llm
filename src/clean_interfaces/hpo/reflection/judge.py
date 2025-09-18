@@ -392,11 +392,10 @@ class JudgeAugmentationStrategy:
 
 def _maybe_mapping(value: object) -> dict[str, object] | None:
     """Convert mapping-like objects to ``dict[str, object]`` copies."""
-
     if not isinstance(value, Mapping):
         return None
     result: dict[str, object] = {}
-    items = cast(Iterable[tuple[object, object]], value.items())
+    items = cast("Iterable[tuple[object, object]]", value.items())
     for key_obj, entry in items:
         if not isinstance(key_obj, str):
             continue
@@ -406,18 +405,16 @@ def _maybe_mapping(value: object) -> dict[str, object] | None:
 
 def _coerce_mapping(value: object) -> dict[str, object]:
     """Return a mapping copy with string keys when possible."""
-
     mapping = _maybe_mapping(value)
     return mapping or {}
 
 
 def _coerce_mapping_sequence(value: object) -> tuple[dict[str, object], ...]:
     """Extract mapping entries from a heterogeneous sequence."""
-
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
-        return tuple()
+        return ()
     collected: list[dict[str, object]] = []
-    sequence = cast(Sequence[object], value)
+    sequence = cast("Sequence[object]", value)
     for entry in sequence:
         mapping = _maybe_mapping(entry)
         if mapping is not None:
@@ -427,19 +424,18 @@ def _coerce_mapping_sequence(value: object) -> tuple[dict[str, object], ...]:
 
 def _coerce_str_tuple(value: object) -> tuple[str, ...]:
     """Return a tuple of non-empty string values."""
-
     if value is None:
-        return tuple()
+        return ()
     if isinstance(value, str):
         stripped = value.strip()
-        return (stripped,) if stripped else tuple()
+        return (stripped,) if stripped else ()
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         collected: list[str] = []
-        sequence = cast(Sequence[object], value)
+        sequence = cast("Sequence[object]", value)
         for element in sequence:
             if isinstance(element, str):
                 stripped = element.strip()
                 if stripped:
                     collected.append(stripped)
         return tuple(collected)
-    return tuple()
+    return ()

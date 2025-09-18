@@ -1,9 +1,8 @@
-from __future__ import annotations
 
 from typing import Any
 
 class TrialState:
-    FAIL: "TrialState"
+    FAIL: TrialState
 
 class Trial:
     number: int
@@ -48,8 +47,13 @@ class Study:
 class TPESampler:
     def __init__(self, *, seed: int | None = ...) -> None: ...
 
-class samplers:
+class Samplers:
     TPESampler: type[TPESampler]
 
 
-def create_study(*, direction: str, study_name: str | None = ..., **kwargs: Any) -> Study: ...
+def create_study(
+    *,
+    direction: str,
+    study_name: str | None = ...,
+    **kwargs: Any,
+) -> Study: ...

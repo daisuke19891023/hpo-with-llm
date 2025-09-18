@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from collections.abc import Mapping
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 import pytest
 
@@ -113,7 +114,7 @@ def test_responses_judge_parses_structured_output(
     content_payload_obj = user_message.get("content")
     assert isinstance(content_payload_obj, list)
     assert content_payload_obj
-    first_item = cast(dict[str, object], content_payload_obj[0])
+    first_item = cast("dict[str, object]", content_payload_obj[0])
     user_content = first_item.get("text")
     assert isinstance(user_content, str)
     assert "Use conservative temperature" in user_content

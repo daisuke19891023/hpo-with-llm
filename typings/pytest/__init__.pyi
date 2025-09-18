@@ -47,4 +47,9 @@ class LogCaptureFixture:
     def set_level(self, level: int | str) -> None: ...
     records: list[LogRecord]
 
-def approx(value: float, *, rel: float | None = ..., abs: float | None = ...) -> Any: ...
+def approx(
+    value: float,
+    *,
+    rel: float | None = ...,
+    abs: float | None = ...,  # noqa: A002 - mirrors pytest API
+) -> Any: ...

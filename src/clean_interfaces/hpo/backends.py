@@ -24,15 +24,15 @@ try:  # pragma: no cover - optional dependency
     import optuna  # type: ignore[import-not-found]
     from optuna.trial import TrialState  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover - handled in runtime logic
-    optuna = typing.cast(typing.Any, None)
-    TrialState = typing.cast(typing.Any, None)
+    optuna = typing.cast("typing.Any", None)
+    TrialState = typing.cast("typing.Any", None)
 
 if TYPE_CHECKING:
     from optuna import trial as optuna_trial
     from optuna.study import Study as OptunaStudy
 else:  # pragma: no cover - typing fallback when optuna is unavailable
-    optuna_trial = typing.cast(typing.Any, None)
-    OptunaStudy = typing.cast(typing.Any, None)
+    optuna_trial = typing.cast("typing.Any", None)
+    OptunaStudy = typing.cast("typing.Any", None)
 
 
 def _comparable_score(score: float, maximize: bool) -> float:

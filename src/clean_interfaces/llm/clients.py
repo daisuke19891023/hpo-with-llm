@@ -64,16 +64,19 @@ class AzureOpenAIClient(LLMClient):
             msg = "openai package is required to use the Azure OpenAI provider"
             raise LLMConfigurationError(msg)
 
-        assert settings.azure_endpoint is not None
-        assert settings.azure_deployment is not None
+        endpoint = settings.azure_endpoint
+        deployment = settings.azure_deployment
+        if endpoint is None or deployment is None:
+            msg = "Azure OpenAI configuration is incomplete after validation"
+            raise LLMConfigurationError(msg)
 
         self._client: Any = AzureOpenAI(  # type: ignore[operator]
             api_key=settings.azure_api_key,
             api_version=settings.azure_api_version,
-            azure_endpoint=settings.azure_endpoint,
+            azure_endpoint=endpoint,
         )
-        self._deployment = settings.azure_deployment
-        super().__init__(settings=settings, model=settings.azure_deployment)
+        self._deployment = deployment
+        super().__init__(settings=settings, model=deployment)
 
     def _invoke(self, payload: typing.Mapping[str, object]) -> Any:
         request_payload = dict(payload)

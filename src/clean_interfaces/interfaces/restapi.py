@@ -49,11 +49,10 @@ class RestAPIInterface(BaseInterface):
         """Set up API routes."""
         self.logger.info("Setting up API routes")
 
-        app = cast(Any, self.app)
+        app = cast("Any", self.app)
 
         async def root() -> RedirectResponse:
             """Redirect root to API documentation."""
-
             return RedirectResponse(url="/docs")
 
         app.add_api_route(
@@ -65,7 +64,6 @@ class RestAPIInterface(BaseInterface):
 
         async def health() -> HealthResponse:
             """Health check endpoint."""
-
             return HealthResponse()
 
         app.add_api_route(
@@ -77,7 +75,6 @@ class RestAPIInterface(BaseInterface):
 
         async def welcome() -> WelcomeResponse:
             """Welcome message endpoint."""
-
             return WelcomeResponse()
 
         app.add_api_route(
@@ -91,7 +88,6 @@ class RestAPIInterface(BaseInterface):
             request: HPOExecutionRequest,
         ) -> HPOExecutionResponse:
             """Launch a hyperparameter optimization run."""
-
             from clean_interfaces.app import run_hpo_experiment
 
             result = run_hpo_experiment(
@@ -109,7 +105,6 @@ class RestAPIInterface(BaseInterface):
 
         async def enhanced_swagger_ui() -> str:
             """Enhanced Swagger UI with dynamic content generation."""
-
             schema_url = "/api/v1/swagger-ui/schema"
             return f"""<!DOCTYPE html>
 <html lang="en">
@@ -169,7 +164,6 @@ class RestAPIInterface(BaseInterface):
 
         async def swagger_ui_schema() -> dict[str, Any]:
             """Enhanced OpenAPI schema with dynamic content metadata."""
-
             # Get the base OpenAPI schema from FastAPI
             base_schema = get_openapi(
                 title=self.app.title,
@@ -200,7 +194,6 @@ class RestAPIInterface(BaseInterface):
 
         async def swagger_ui_analysis() -> SwaggerAnalysisResponse:
             """Source code and documentation analysis for Swagger UI."""
-
             # Return mock analysis data
             return SwaggerAnalysisResponse(
                 interfaces=["RestAPIInterface", "CLIInterface"],

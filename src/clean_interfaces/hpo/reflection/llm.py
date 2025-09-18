@@ -187,17 +187,13 @@ class LLMReflectionStrategy:
     def _build_llm_context(
         self, context: LLMReflectionContext,
     ) -> dict[str, object]:
-        metrics_payload: Mapping[str, object]
-        if context.metrics is not None:
-            metrics_payload = dict(context.metrics)
-        else:
-            metrics_payload = {}
+        metrics_payload: Mapping[str, object] = (
+            dict(context.metrics) if context.metrics is not None else {}
+        )
 
-        judge_payload: Mapping[str, object]
-        if context.judge is not None:
-            judge_payload = dict(context.judge)
-        else:
-            judge_payload = {}
+        judge_payload: Mapping[str, object] = (
+            dict(context.judge) if context.judge is not None else {}
+        )
 
         return {
             "best_trial": {
@@ -366,7 +362,7 @@ class LLMReflectionStrategy:
     def _insights_from_llm_payload(self, data: object) -> list[ReflectionInsight]:
         insights: list[ReflectionInsight] = []
         if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
-            sequence = cast(Sequence[object], data)
+            sequence = cast("Sequence[object]", data)
             for entry in sequence:
                 mapping_entry = _coerce_mapping(entry)
                 if mapping_entry is not None:
@@ -383,7 +379,7 @@ class LLMReflectionStrategy:
     def _actions_from_llm_payload(self, data: object) -> list[str]:
         actions: list[str] = []
         if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
-            sequence = cast(Sequence[object], data)
+            sequence = cast("Sequence[object]", data)
             for entry in sequence:
                 text = str(entry).strip()
                 if text:
@@ -393,11 +389,10 @@ class LLMReflectionStrategy:
 
 def _coerce_mapping(value: object) -> dict[str, object] | None:
     """Convert mapping-like objects into ``dict[str, object]`` payloads."""
-
     if not isinstance(value, Mapping):
         return None
     result: dict[str, object] = {}
-    items = cast(Iterable[tuple[object, object]], value.items())
+    items = cast("Iterable[tuple[object, object]]", value.items())
     for key_obj, entry in items:
         if not isinstance(key_obj, str):
             continue

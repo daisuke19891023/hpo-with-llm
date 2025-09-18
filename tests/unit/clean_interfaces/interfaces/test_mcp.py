@@ -1,7 +1,8 @@
 """Tests for MCP interface implementation."""
 
-from collections.abc import Sequence
-from typing import Any, cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,6 +10,10 @@ from fastmcp import FastMCP
 
 from clean_interfaces.interfaces.base import BaseInterface
 from clean_interfaces.interfaces.mcp import MCPInterface
+
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 class TestMCPInterface:
@@ -55,8 +60,8 @@ class TestMCPInterface:
         )
 
         assert isinstance(payload, dict)
-        reflection = cast(dict[str, Any], payload["reflection"])
+        reflection = cast("dict[str, Any]", payload["reflection"])
         assert reflection["mode"] == "baseline"
         assert "summary" in reflection
-        trials = cast(Sequence[Any], payload["trials"])
+        trials = cast("Sequence[Any]", payload["trials"])
         assert len(list(trials)) > 0

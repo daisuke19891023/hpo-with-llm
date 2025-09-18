@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
 def _empty_metadata() -> dict[str, Any]:
     """Return a new metadata dictionary with precise typing."""
-
     return {}
 
 
@@ -48,7 +47,6 @@ class EvaluationIndicator(Protocol):
 
     def supports(self, dataset: GoldenDataset) -> bool:
         """Return ``True`` when the dataset contains the necessary signals."""
-
         ...
 
     def evaluate(
@@ -57,7 +55,6 @@ class EvaluationIndicator(Protocol):
         predictions: Mapping[str, object],
     ) -> IndicatorResult:
         """Evaluate predictions against the dataset and return a result."""
-
         ...
 
 
@@ -85,7 +82,7 @@ class ClassificationIndicator:
             msg = "Classification indicator requires a sequence of predictions"
             raise TypeError(msg)
 
-        predictions_seq = list(cast(Sequence[object], raw_predictions))
+        predictions_seq = list(cast("Sequence[object]", raw_predictions))
         if len(predictions_seq) != len(dataset.classification):
             msg = (
                 "Number of classification predictions must match dataset size "
@@ -168,7 +165,7 @@ def _parse_file_search_predictions(
         raise TypeError(msg)
 
     parsed: list[FileSearchPrediction] = []
-    for item in cast(Sequence[object], raw_predictions):
+    for item in cast("Sequence[object]", raw_predictions):
         if not isinstance(item, FileSearchPrediction):
             msg = "File search predictions must be FileSearchPrediction instances"
             raise TypeError(msg)

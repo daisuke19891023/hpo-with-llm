@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, cast
+from collections.abc import Callable
 from collections.abc import Iterable, Mapping, Sequence
 
 from clean_interfaces.base import BaseComponent
@@ -131,9 +132,9 @@ class LLMClient(BaseComponent, ABC):
     def _parse_response(self, response: Any) -> LLMGenerationResult:
         """Normalise responses API payloads into :class:`LLMGenerationResult`."""
         if hasattr(response, "model_dump"):
-            data = cast(Mapping[str, object], response.model_dump())
+            data = cast("Mapping[str, object]", response.model_dump())
         elif isinstance(response, Mapping):
-            data = cast(Mapping[str, object], response)
+            data = cast("Mapping[str, object]", response)
         else:  # pragma: no cover - defensive path for unexpected SDK payloads
             msg = f"Unsupported response payload type: {type(response)!r}"
             raise TypeError(msg)
@@ -146,7 +147,7 @@ class LLMClient(BaseComponent, ABC):
         parser.consume_outputs(data.get("output"))
 
         text = parser.final_text()
-        usage = _coerce_mapping(cast(object, data.get("usage"))) or {}
+        usage = _coerce_mapping(cast("object", data.get("usage"))) or {}
 
         model_value = data.get("model")
         model = model_value if isinstance(model_value, str) else None
@@ -174,10 +175,10 @@ class _ResponseContentParser:
         """Consume the list of outputs emitted by the responses API."""
         if not isinstance(outputs, Sequence):
             return
-        sequence = cast(Sequence[object], outputs)
+        sequence = cast("Sequence[object]", outputs)
         for entry in sequence:
             if isinstance(entry, Mapping):
-                mapping_item = _coerce_mapping(cast(object, entry))
+                mapping_item = _coerce_mapping(cast("object", entry))
                 if mapping_item is not None:
                     self._consume_output_item(mapping_item)
 
@@ -190,10 +191,10 @@ class _ResponseContentParser:
         contents = item.get("content")
         if not isinstance(contents, Sequence):
             return
-        content_sequence = cast(Sequence[object], contents)
+        content_sequence = cast("Sequence[object]", contents)
         for entry in content_sequence:
             if isinstance(entry, Mapping):
-                mapping_content = _coerce_mapping(cast(object, entry))
+                mapping_content = _coerce_mapping(cast("object", entry))
                 if mapping_content is not None:
                     self._consume_content(mapping_content)
 
@@ -217,7 +218,7 @@ class _ResponseContentParser:
             self._text_parts.append(text)
 
     def _handle_json_schema(self, content: Mapping[str, object]) -> None:
-        schema_payload = _coerce_mapping(cast(object, content.get("json_schema")))
+        schema_payload = _coerce_mapping(cast("object", content.get("json_schema")))
         if schema_payload is None:
             return
         parsed = self._extract_schema_payload(schema_payload)
@@ -225,8 +226,10 @@ class _ResponseContentParser:
             self.structured_output = dict(parsed)
 
     def _handle_tool_call(self, content: Mapping[str, object]) -> None:
-        tool_payload = _coerce_mapping(cast(object, content.get("tool_call"))) or content
-        function_payload = _coerce_mapping(cast(object, tool_payload.get("function")))
+        tool_payload = _coerce_mapping(cast("object", content.get("tool_call")))
+        if tool_payload is None:
+            tool_payload = content
+        function_payload = _coerce_mapping(cast("object", tool_payload.get("function")))
         if function_payload is None:
             return
         name = function_payload.get("name")
@@ -243,7 +246,7 @@ class _ResponseContentParser:
         if isinstance(parsed, list):
             if not parsed:
                 return None
-            parsed = cast(object, parsed[0])
+            parsed = cast("object", parsed[0])
         if parsed is None and "output" in schema_payload:
             parsed = schema_payload.get("output")
         if parsed is None and "json" in schema_payload:
@@ -260,7 +263,7 @@ class _ResponseContentParser:
     @staticmethod
     def _normalise_arguments(argument_payload: Any) -> Mapping[str, object]:
         if isinstance(argument_payload, Mapping):
-            coerced = _coerce_mapping(cast(object, argument_payload))
+            coerced = _coerce_mapping(cast("object", argument_payload))
             return coerced or {}
         if isinstance(argument_payload, str):
             try:
@@ -268,7 +271,7 @@ class _ResponseContentParser:
             except json.JSONDecodeError:
                 return {"raw": argument_payload}
             if isinstance(decoded, Mapping):
-                coerced = _coerce_mapping(cast(object, decoded))
+                coerced = _coerce_mapping(cast("object", decoded))
                 return coerced or {}
             return {"raw": decoded}
         return {}
@@ -276,17 +279,15 @@ class _ResponseContentParser:
 
 def _copy_str_mapping(mapping: Mapping[str, object]) -> dict[str, object]:
     """Return a shallow copy of a mapping with string keys."""
-
-    return {key: value for key, value in mapping.items()}
+    return dict(mapping.items())
 
 
 def _coerce_mapping(value: object) -> dict[str, object] | None:
     """Convert a mapping-like object to a ``dict[str, object]`` when possible."""
-
     if not isinstance(value, Mapping):
         return None
     result: dict[str, object] = {}
-    items = cast(Iterable[tuple[object, object]], value.items())
+    items = cast("Iterable[tuple[object, object]]", value.items())
     for key_obj, entry in items:
         if not isinstance(key_obj, str):
             return None
