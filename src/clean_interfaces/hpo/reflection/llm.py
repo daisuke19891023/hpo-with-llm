@@ -3,7 +3,8 @@
 from __future__ import annotations
 import json
 from dataclasses import dataclass
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from typing import cast
 
 from clean_interfaces.llm import (
     LLMClient,
@@ -175,9 +176,7 @@ class LLMReflectionStrategy:
         payload: Mapping[str, object] | None = None
         if isinstance(result.structured_output, Mapping):
             payload = result.structured_output
-        elif result.function_call is not None and isinstance(
-            result.function_call.arguments, Mapping,
-        ):
+        elif result.function_call is not None:
             payload = result.function_call.arguments
 
         if payload is None:
@@ -189,13 +188,13 @@ class LLMReflectionStrategy:
         self, context: LLMReflectionContext,
     ) -> dict[str, object]:
         metrics_payload: Mapping[str, object]
-        if isinstance(context.metrics, Mapping):
+        if context.metrics is not None:
             metrics_payload = dict(context.metrics)
         else:
             metrics_payload = {}
 
         judge_payload: Mapping[str, object]
-        if isinstance(context.judge, Mapping):
+        if context.judge is not None:
             judge_payload = dict(context.judge)
         else:
             judge_payload = {}
@@ -238,13 +237,14 @@ class LLMReflectionStrategy:
         suggestion: Mapping[str, ParameterValue],
         search_space: Sequence[HyperparameterSpec],
     ) -> dict[str, ParameterValue]:
-        if not isinstance(hyperparameters, Mapping):
+        mapping = _coerce_mapping(hyperparameters)
+        if mapping is None:
             return dict(suggestion)
 
         specs = {spec.name: spec for spec in search_space}
         merged = dict(suggestion)
-        for name, value in hyperparameters.items():
-            spec = specs.get(str(name))
+        for name, value in mapping.items():
+            spec = specs.get(name)
             if spec is None:
                 continue
             coerced = self._coerce_parameter_value(value, spec)
@@ -287,9 +287,14 @@ class LLMReflectionStrategy:
         value: object,
         spec: HyperparameterSpec,
     ) -> float | None:
-        try:
+        if isinstance(value, (int, float)):
             numeric = float(value)
-        except (TypeError, ValueError):
+        elif isinstance(value, str):
+            try:
+                numeric = float(value)
+            except ValueError:
+                return None
+        else:
             return None
         if spec.lower is not None:
             numeric = max(numeric, float(spec.lower))
@@ -302,9 +307,14 @@ class LLMReflectionStrategy:
         value: object,
         spec: HyperparameterSpec,
     ) -> int | None:
-        try:
+        if isinstance(value, (int, float)):
             numeric = int(float(value))
-        except (TypeError, ValueError):
+        elif isinstance(value, str):
+            try:
+                numeric = int(float(value))
+            except ValueError:
+                return None
+        else:
             return None
         if spec.lower is not None:
             numeric = max(numeric, int(spec.lower))
@@ -355,12 +365,14 @@ class LLMReflectionStrategy:
 
     def _insights_from_llm_payload(self, data: object) -> list[ReflectionInsight]:
         insights: list[ReflectionInsight] = []
-        if isinstance(data, Sequence) and not isinstance(data, (str, bytes)):
-            for entry in data:
-                if isinstance(entry, Mapping):
-                    raw_title = str(entry.get("title", "LLM insight")).strip()
+        if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
+            sequence = cast(Sequence[object], data)
+            for entry in sequence:
+                mapping_entry = _coerce_mapping(entry)
+                if mapping_entry is not None:
+                    raw_title = str(mapping_entry.get("title", "LLM insight")).strip()
                     title = raw_title or "LLM insight"
-                    detail = str(entry.get("detail", "")).strip()
+                    detail = str(mapping_entry.get("detail", "")).strip()
                 else:
                     title = "LLM insight"
                     detail = str(entry).strip()
@@ -370,9 +382,24 @@ class LLMReflectionStrategy:
 
     def _actions_from_llm_payload(self, data: object) -> list[str]:
         actions: list[str] = []
-        if isinstance(data, Sequence) and not isinstance(data, (str, bytes)):
-            for entry in data:
+        if isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
+            sequence = cast(Sequence[object], data)
+            for entry in sequence:
                 text = str(entry).strip()
                 if text:
                     actions.append(text)
         return actions
+
+
+def _coerce_mapping(value: object) -> dict[str, object] | None:
+    """Convert mapping-like objects into ``dict[str, object]`` payloads."""
+
+    if not isinstance(value, Mapping):
+        return None
+    result: dict[str, object] = {}
+    items = cast(Iterable[tuple[object, object]], value.items())
+    for key_obj, entry in items:
+        if not isinstance(key_obj, str):
+            continue
+        result[key_obj] = entry
+    return result

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from collections.abc import Iterable, Mapping, Sequence
+from typing import cast
 
 from clean_interfaces.hpo.schemas import (
     HyperparameterSpec,
@@ -395,10 +396,11 @@ def _maybe_mapping(value: object) -> dict[str, object] | None:
     if not isinstance(value, Mapping):
         return None
     result: dict[str, object] = {}
-    for key in value:
-        if not isinstance(key, str):
+    items = cast(Iterable[tuple[object, object]], value.items())
+    for key_obj, entry in items:
+        if not isinstance(key_obj, str):
             continue
-        result[key] = value[key]
+        result[key_obj] = entry
     return result
 
 
@@ -415,9 +417,9 @@ def _coerce_mapping_sequence(value: object) -> tuple[dict[str, object], ...]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
         return tuple()
     collected: list[dict[str, object]] = []
-    for entry in value:
-        entry_obj: object = entry
-        mapping = _maybe_mapping(entry_obj)
+    sequence = cast(Sequence[object], value)
+    for entry in sequence:
+        mapping = _maybe_mapping(entry)
         if mapping is not None:
             collected.append(mapping)
     return tuple(collected)
@@ -433,10 +435,10 @@ def _coerce_str_tuple(value: object) -> tuple[str, ...]:
         return (stripped,) if stripped else tuple()
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         collected: list[str] = []
-        for element in value:
-            item = element
-            if isinstance(item, str):
-                stripped = item.strip()
+        sequence = cast(Sequence[object], value)
+        for element in sequence:
+            if isinstance(element, str):
+                stripped = element.strip()
                 if stripped:
                     collected.append(stripped)
         return tuple(collected)

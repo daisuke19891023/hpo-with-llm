@@ -170,10 +170,11 @@ def _coerce_str_mapping(value: object) -> dict[str, object]:
 
     if isinstance(value, Mapping):
         result: dict[str, object] = {}
-        for key in value:
-            if not isinstance(key, str):
+        items = cast(Iterable[tuple[object, object]], value.items())
+        for key_obj, entry in items:
+            if not isinstance(key_obj, str):
                 continue
-            result[key] = value[key]
+            result[key_obj] = entry
         return result
     return {}
 
