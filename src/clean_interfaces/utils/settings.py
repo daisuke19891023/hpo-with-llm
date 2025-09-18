@@ -297,7 +297,15 @@ class LLMSettings(BaseSettings):
     @model_validator(mode="after")
     def _normalise_provider(self) -> "LLMSettings":
         """Ensure provider aliases normalise to canonical enum values."""
-        self.provider = LLMProvider(str(self.provider).lower())
+        if isinstance(self.provider, LLMProvider):
+            return self
+
+        normalised = str(self.provider).strip().lower()
+        try:
+            self.provider = LLMProvider(normalised)
+        except ValueError as exc:  # pragma: no cover - defensive branch
+            message = f"Unsupported LLM provider: {self.provider!r}"
+            raise ValueError(message) from exc
         return self
 
 
