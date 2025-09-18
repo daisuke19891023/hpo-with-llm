@@ -4,6 +4,7 @@ This module provides centralized configuration management for the application,
 with support for environment variables and validation.
 """
 
+import typing
 from enum import Enum
 from typing import Any, ClassVar, Literal
 
@@ -297,10 +298,12 @@ class LLMSettings(BaseSettings):
     @model_validator(mode="after")
     def _normalise_provider(self) -> "LLMSettings":
         """Ensure provider aliases normalise to canonical enum values."""
-        if isinstance(self.provider, LLMProvider):
+        provider_value = typing.cast("LLMProvider | str", self.provider)
+        if isinstance(provider_value, LLMProvider):
+            self.provider = provider_value
             return self
 
-        normalised = str(self.provider).strip().lower()
+        normalised = str(provider_value).strip().lower()
         try:
             self.provider = LLMProvider(normalised)
         except ValueError as exc:  # pragma: no cover - defensive branch

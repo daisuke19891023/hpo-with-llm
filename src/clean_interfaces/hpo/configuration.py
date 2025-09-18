@@ -329,40 +329,42 @@ def build_application_plan(
 
         location = spec.location
 
-        if isinstance(location, EnvironmentParameterLocation):
-            environment[location.variable] = str(value)
-        elif isinstance(location, CLIArgumentParameterLocation):
-            rendered_value = (
-                location.value_template.format(value=value)
-                if location.value_template is not None
-                else str(value)
-            )
-            if location.flag:
-                cli_arguments.extend([location.flag, rendered_value])
-            else:
-                cli_arguments.append(rendered_value)
-        elif isinstance(location, FileContentParameterLocation):
-            file_writes_map[location.path] = FileWriteInstruction(
-                path=location.path,
-                content=str(value),
-                encoding=location.encoding,
-            )
-        else:
-            if not isinstance(location, YAMLConfigParameterLocation):
+        match location:
+            case EnvironmentParameterLocation():
+                environment[location.variable] = str(value)
+            case CLIArgumentParameterLocation():
+                rendered_value = (
+                    location.value_template.format(value=value)
+                    if location.value_template is not None
+                    else str(value)
+                )
+                if location.flag:
+                    cli_arguments.extend([location.flag, rendered_value])
+                else:
+                    cli_arguments.append(rendered_value)
+            case FileContentParameterLocation():
+                file_writes_map[location.path] = FileWriteInstruction(
+                    path=location.path,
+                    content=str(value),
+                    encoding=location.encoding,
+                )
+            case YAMLConfigParameterLocation():
+                key_path = _split_key_path(location.key_path)
+                updates = yaml_updates_map.setdefault(
+                    location.path,
+                    YAMLUpdateInstruction(
+                        path=location.path,
+                        encoding=location.encoding,
+                    ),
+                )
+                updates.updates.append(
+                    YAMLKeyUpdate(key_path=key_path, value=value)
+                )
+            case _:
                 msg = (
-                    "Unsupported parameter location encountered during plan "
-                    "construction"
+                    "Unsupported parameter location encountered during plan construction"
                 )
                 raise TypeError(msg)
-            key_path = _split_key_path(location.key_path)
-            updates = yaml_updates_map.setdefault(
-                location.path,
-                YAMLUpdateInstruction(
-                    path=location.path,
-                    encoding=location.encoding,
-                ),
-            )
-            updates.updates.append(YAMLKeyUpdate(key_path=key_path, value=value))
 
     return ParameterApplicationPlan(
         parameter_values=dict(assignments),

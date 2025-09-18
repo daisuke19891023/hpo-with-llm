@@ -229,8 +229,9 @@ def test_reflection_agent_llm_mode_uses_llm_client() -> None:
 
         def create(
             self,
-            _provider: LLMProvider | str | None = None,
+            provider: LLMProvider | str | None = None,
         ) -> LLMClient:
+            _ = provider
             return cast("LLMClient", stub_client)
 
     agent = ReflectionAgent(llm_factory=StubFactory())

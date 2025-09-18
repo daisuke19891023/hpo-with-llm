@@ -23,9 +23,11 @@ from .schemas import (
 try:  # pragma: no cover - optional dependency
     import optuna  # type: ignore[import-not-found]
     from optuna.trial import TrialState  # type: ignore[import-not-found]
+    from optuna.samplers import TPESampler  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover - handled in runtime logic
     optuna = typing.cast("typing.Any", None)
     TrialState = typing.cast("typing.Any", None)
+    TPESampler = typing.cast("typing.Any", None)
 
 if TYPE_CHECKING:
     from optuna import trial as optuna_trial
@@ -227,15 +229,21 @@ class OptunaSearchBackend(BaseComponent):
         self._active_trials.clear()
         self._maximize = direction_to_bool(config.direction)
 
-        sampler = (
-            config.backend_options.get("sampler")
-            if config.backend_options
-            else None
-        )
-        if sampler is None and config.random_seed is not None:
-            sampler = optuna.samplers.TPESampler(seed=config.random_seed)
+        if config.backend_options:
+            backend_options: dict[str, typing.Any] = dict(config.backend_options)
+            sampler = (
+                backend_options.get("sampler")
+                if "sampler" in backend_options
+                else None
+            )
+            study_kwargs: dict[str, typing.Any] = backend_options
+        else:
+            sampler = None
+            study_kwargs = {}
 
-        study_kwargs = config.backend_options.copy()
+        if sampler is None and config.random_seed is not None and TPESampler is not None:
+            sampler = TPESampler(seed=config.random_seed)
+
         if sampler is not None:
             study_kwargs["sampler"] = sampler
 
