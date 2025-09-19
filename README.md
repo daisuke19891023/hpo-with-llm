@@ -1,333 +1,204 @@
-# Clean Interfaces
+# HPO with LLM
 
-A flexible Python application framework with multiple interface types and comprehensive logging support.
+大規模言語モデル (LLM) を活用したハイパーパラメータ最適化 (HPO) ワークフローを、CLI と REST API の両方で扱える Python プロジェクトです。HPO の実行、試行履歴のロギング、LLM を用いた振り返り (Reflection) を共通の基盤上で行えるように設計されています。
 
-## Features
+## 主な機能
 
--   **Multiple Interface Types**: Support for CLI and REST API interfaces
--   **Flexible Configuration**: Environment-based configuration with `.env` file support
--   **Structured Logging**: Advanced logging with OpenTelemetry integration
--   **Modern Python**: Built with Python 3.13+ and modern tooling
--   **Comprehensive Testing**: Unit, API, and E2E test coverage
--   **Type Safety**: Full type hints with strict Pyright checking
--   **Code Quality**: Automated linting and formatting with Ruff
--   **Dependency Management**: Managed with uv for fast, reliable builds
+- **統合された HPO オーケストレーション**: `HPOOrchestrator` がサーチバックエンドと試行実行関数を仲介し、試行の実行・結果集計を管理します。デフォルトではインメモリ探索バックエンドとサンプルの試行実行関数が利用されます。
+- **柔軟なハイパーパラメータ定義**: YAML で記述した検索空間を読み込み、環境変数・CLI 引数・設定ファイル (YAML/テキスト) への値適用まで自動生成できます。
+- **LLM を用いた振り返り**: ベースラインの統計分析に加え、OpenAI/Azure OpenAI などの LLM を使った振り返りモードを備えています。
+- **複数インターフェース**: Typer ベースの CLI に加えて FastAPI 実装の REST API を提供し、同じ HPO 基盤を別の UI から呼び出せます。
+- **構造化ロギングと設定**: `.env` や環境変数から設定を読み込み、Structlog/OTel を利用したロギングを構成できます。
 
-## Project Structure
+## ディレクトリ構造
 
 ```
-clean-interfaces/
-├── src/clean_interfaces/       # Main application code
-│   ├── __init__.py            # Package initialization
-│   ├── app.py                 # Application entry point
-│   ├── base.py                # Base component class
-│   ├── main.py                # CLI entry point with --dotenv support
-│   ├── types.py               # Type definitions
-│   ├── interfaces/            # Interface implementations
-│   │   ├── __init__.py
-│   │   ├── base.py           # Base interface class
-│   │   ├── cli.py            # CLI interface using Typer
-│   │   ├── factory.py        # Interface factory pattern
-│   │   └── restapi.py        # REST API interface using FastAPI
-│   ├── models/                # Data models
-│   │   ├── __init__.py
-│   │   ├── api.py            # API response models
-│   │   └── io.py             # I/O models (e.g., WelcomeMessage)
-│   └── utils/                 # Utility modules
-│       ├── __init__.py
-│       ├── file_handler.py    # File handling utilities
-│       ├── logger.py          # Structured logging setup
-│       ├── otel_exporter.py   # (removed) OpenTelemetry exporter (removed for stability)
-│       └── settings.py        # Application settings
-├── tests/                      # Test suite
-│   ├── unit/                  # Unit tests
-│   ├── api/                   # API tests
-│   └── e2e/                   # End-to-end tests
-├── docs/                       # Documentation
-├── constraints/                # Dependency constraints
-├── .env                       # Environment configuration (not in git)
-├── .env.example               # Example environment configuration
-├── pyproject.toml             # Project configuration
-├── noxfile.py                 # Task automation
-├── CLAUDE.md                  # AI assistant instructions
-└── README.md                  # This file
+├── src/clean_interfaces/
+│   ├── app.py                # アプリケーション組み立てと HPO ヘルパー
+│   ├── main.py               # CLI エントリーポイント
+│   ├── interfaces/           # CLI・REST API などのインターフェース
+│   ├── hpo/                  # オーケストレーション・バックエンド・設定
+│   ├── llm/                  # LLM クライアントと設定
+│   ├── evaluation/           # 評価ユーティリティ (例: ゴールデンデータ)
+│   └── utils/                # 設定・ロギングなどの共通ユーティリティ
+├── docs/                     # MkDocs ベースのドキュメント
+├── tests/                    # 単体・統合テスト
+├── env.example               # `.env` のひな形
+├── noxfile.py                # 開発タスク定義
+├── pyproject.toml            # パッケージ設定
+└── README.md                 # 本ファイル
 ```
 
-## Quick Start
+## セットアップ
 
-### Prerequisites
+### 前提条件
 
--   Python 3.13 or higher
--   uv (Python package manager)
+- Python 3.13 以上
+- [uv](https://github.com/astral-sh/uv) (推奨) ※ もしくは `pip`
+- Git (リポジトリの取得用)
 
-### Installation
+### リポジトリの取得
 
 ```bash
-# Clone the repository
 git clone <repository-url>
-cd clean-interfaces
+cd hpo-with-llm
+```
 
-# Create virtual environment and install dependencies
+### 依存関係のインストール
+
+uv を利用する場合:
+
+```bash
 uv sync
-
-# Copy environment configuration
-cp .env.example .env
-
-# Edit .env with your configuration
 ```
 
-### Running the Application
+pip を利用する場合 (開発ツール込み):
 
 ```bash
-# Run with default settings (uses .env file)
-uv run python -m clean_interfaces.main
-
-# Run with custom environment file
-uv run python -m clean_interfaces.main --dotenv prod.env
-
-# Show help
-uv run python -m clean_interfaces.main --help
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
 ```
 
-## Configuration
+### 環境変数と設定
 
-### Environment Variables
+- `.env` を使う場合は `cp env.example .env` でコピーし、必要に応じて値を編集します。
+- 主要な環境変数 (一例):
 
-Configuration is managed through environment variables. See `.env.example` for all available options:
+| 変数 | 説明 | デフォルト |
+| --- | --- | --- |
+| `INTERFACE_TYPE` | 起動するインターフェース (`cli` / `restapi`) | `cli` |
+| `LOG_LEVEL` | ログレベル (`DEBUG` / `INFO` など) | `INFO` |
+| `LOG_FORMAT` | ログ形式 (`json` / `console` / `plain`) | `json` |
+| `LOG_FILE_PATH` | ファイル出力パス (任意) | 未設定 |
+| `OTEL_LOGS_EXPORT_MODE` | OpenTelemetry 出力 (`file` / `otlp` / `both`) | `file` |
+| `OTEL_ENDPOINT` | OTLP エンドポイント | `http://localhost:4317` |
+| `LLM_PROVIDER` | 利用する LLM プロバイダ (`openai` / `azure_openai`) | `openai` |
+| `LLM_MODEL` | 既定で利用するモデル名 | `gpt-4o-mini` |
+| `OPENAI_API_KEY` 等 | 各プロバイダの API キー | 未設定 |
 
-| Variable         | Description                                  | Default | Options                                         |
-| ---------------- | -------------------------------------------- | ------- | ----------------------------------------------- |
-| `INTERFACE_TYPE` | Interface to use                             | `cli`   | `cli`, `restapi`                                |
-| `LOG_LEVEL`      | Logging level                                | `INFO`  | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
-| `LOG_FORMAT`     | Log output format                            | `json`  | `json`, `console`, `plain`                      |
-| `LOG_FILE_PATH`  | Log file path                                | None    | Any valid file path                             |
-| `OTEL_*`         | [Deprecated] OpenTelemetry exporter settings | -       | Removed                                         |
+`.env` 以外に CLI の `--dotenv` オプションで別ファイルを読み込むこともできます。
 
-### Using Custom Environment Files
+## 使い方
 
-You can specify custom environment files using the `--dotenv` option:
+### CLI インターフェース
+
+まずはヘルプを確認します:
 
 ```bash
-# Development environment
-uv run python -m clean_interfaces.main --dotenv dev.env
-
-# Production environment
-uv run python -m clean_interfaces.main --dotenv prod.env
-
-# Testing environment
-uv run python -m clean_interfaces.main --dotenv test.env
+uv run python -m clean_interfaces.main -- --help
 ```
 
-## Development
+主なサブコマンド:
 
-### Setup Development Environment
+- ウェルカムメッセージ
+  ```bash
+  uv run python -m clean_interfaces.main welcome
+  ```
+- HPO の実行 (デフォルトの探索空間)
+  ```bash
+  uv run python -m clean_interfaces.main run-hpo \
+    --task "Improve retrieval strategy" \
+    --max-trials 5 \
+    --direction maximize
+  ```
+- 振り返り付き HPO (LLM モードを利用)
+  ```bash
+  uv run python -m clean_interfaces.main reflect-hpo \
+    --task "Tune RAG pipeline" \
+    --mode llm \
+    --max-trials 3
+  ```
 
-```bash
-# Install development dependencies
-uv sync --extra dev
+#### カスタム検索空間を使う
+`clean_interfaces.hpo.configuration.load_tuning_config` は YAML 形式の検索空間を読み込みます。下記のようなファイルを用意し、`--search-space-config` で指定できます。
 
-# Install pre-commit hooks
-uv run pre-commit install
+```yaml
+parameters:
+  - name: temperature
+    type: float
+    lower: 0.0
+    upper: 1.0
+    description: Sampling temperature
+    location:
+      type: environment
+      variable: LLM_TEMPERATURE
+  - name: max_output_tokens
+    type: int
+    lower: 128
+    upper: 1024
+    step: 64
+    location:
+      type: cli_argument
+      flag: --max-output-tokens
+      value_template: "{value}"
+  - name: retrieval_strategy
+    type: categorical
+    choices: [keyword, vector, hybrid]
 ```
 
-### Development Commands
-
-| Command              | Description         |
-| -------------------- | ------------------- |
-| `nox -s lint`        | Run code linting    |
-| `nox -s format_code` | Format code         |
-| `nox -s typing`      | Run type checking   |
-| `nox -s test`        | Run all tests       |
-| `nox -s security`    | Run security checks |
-| `nox -s docs`        | Build documentation |
-| `nox -s ci`          | Run all CI checks   |
-
-### Testing
-
 ```bash
-# Run all tests
-nox -s test
-
-# Run specific test file
-uv run pytest tests/unit/clean_interfaces/test_app.py
-
-# Run with coverage
-uv run pytest --cov=src --cov-report=html
+uv run python -m clean_interfaces.main run-hpo \
+  --task "Custom search" \
+  --search-space-config ./tuning.yaml
 ```
 
-### Code Quality
+### REST API インターフェース
 
-The project maintains high code quality standards:
-
--   **Type Checking**: Strict Pyright type checking
--   **Linting**: Comprehensive Ruff rules
--   **Formatting**: Automated with Ruff formatter
--   **Testing**: 80% minimum coverage requirement
--   **Security**: Regular security scanning
-
-## Interface Types
-
-### CLI Interface
-
-The default interface provides a command-line interface using Typer:
+REST API を起動する場合はインターフェース種別を切り替えます。
 
 ```bash
-# Run CLI interface
-INTERFACE_TYPE=cli uv run python -m clean_interfaces.main
-```
-
-Features:
-
--   Interactive command-line interface
--   Rich terminal output
--   Help documentation
--   Command completion
-
-### REST API Interface
-
-The REST API interface provides HTTP endpoints using FastAPI:
-
-```bash
-# Run REST API interface
 INTERFACE_TYPE=restapi uv run python -m clean_interfaces.main
 ```
 
-Features:
+既定では FastAPI サーバーが `http://127.0.0.1:8000` で立ち上がります。主なエンドポイントは以下の通りです。
 
--   OpenAPI documentation
--   Automatic request validation
--   JSON responses
--   Async support
+- `GET /health` ヘルスチェック
+- `GET /api/v1/welcome` ウェルカムメッセージ
+- `POST /api/v1/hpo/run` HPO 実行 (JSON で `task`, `search_space`, `config` を指定)
+- `GET /api/v1/swagger-ui` Swagger UI (拡張ドキュメント)
 
-## Logging
+### Python から利用する
 
-The application uses structured logging with multiple output formats:
-
-### JSON Format (Production)
-
-```json
-{
-    "timestamp": "2025-07-20T10:30:45.123Z",
-    "level": "info",
-    "logger": "clean_interfaces.app",
-    "message": "Application started",
-    "interface": "cli"
-}
-```
-
-### Console Format (Development)
-
-```
-2025-07-20 10:30:45 [INFO] clean_interfaces.app: Application started interface=cli
-```
-
-### OpenTelemetry Integration
-
-When enabled, logs can be exported to OpenTelemetry collectors:
-
-```bash
-# Enable OTLP export
-# OpenTelemetry exporter was removed. Trace context may still be included if OTEL is present.
-```
-
-## Documentation
-
-### Building Documentation
-
-```bash
-# Build with Sphinx (API documentation)
-nox -s docs
-
-# Build with MkDocs (user guide)
-uv run mkdocs build
-
-# Serve documentation locally
-uv run mkdocs serve
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run quality checks (`nox -s ci`)
-5. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-### Development Guidelines
-
--   Follow conventional commits
--   Maintain test coverage above 80%
--   Ensure all type checks pass
--   Update documentation as needed
--   Add tests for new features
-
-### Pre-commit Setup
-
-This project uses pre-commit hooks to ensure code quality. The hooks run automatically before each commit.
-
-#### Installation
-
-```bash
-# Install pre-commit hooks
-uv run pre-commit install
-```
-
-#### Manual Run
-
-```bash
-# Run on all files
-uv run pre-commit run --all-files
-
-# Run on staged files only
-uv run pre-commit run
-```
-
-#### Hook Configuration
-
-The pre-commit hooks use nox to ensure consistency with the project's configuration:
-
--   **ruff format**: Formats code according to `pyproject.toml` settings
--   **ruff lint**: Checks and fixes linting issues based on `pyproject.toml` rules
--   **pyright**: Type checks the code using project settings
-
-All hooks respect the configuration in `pyproject.toml`, ensuring no divergence between pre-commit and regular development commands.
-
-### Testing Helpers
-
-This project includes testing helpers to make debugging easier:
-
-#### Pexpect Debug Helper
-
-For E2E tests using pexpect, use the debug helper:
+コード内から直接呼び出す場合は `clean_interfaces.app` のヘルパーを利用できます。
 
 ```python
-from tests.helpers.pexpect_debug import run_cli_with_debug
+from clean_interfaces.app import run_hpo_experiment, run_hpo_with_reflection
+from clean_interfaces.hpo.executors import default_trial_executor
 
-# Run with debug output enabled
-output, exitstatus = run_cli_with_debug(
-    "python -m clean_interfaces.main --help",
-    env=clean_env,
-    timeout=10,
-    debug=True,  # Enable debug output
+result = run_hpo_experiment(request, trial_executor=default_trial_executor)
+result, reflection = run_hpo_with_reflection(
+    request,
+    trial_executor=default_trial_executor,
 )
 ```
 
-Enable debug mode in CI by setting `PYTEST_DEBUG=1` environment variable.
+## 開発環境の整備
 
-### GitHub Actions Integration
+```bash
+# 開発用依存関係の追加インストール
+uv sync --extra dev
 
-This project includes a GitHub Actions workflow for Claude Code integration (`.github/workflows/claude.yml`).
+# pre-commit フックの設定
+uv run pre-commit install
+```
 
-**⚠️ Current Status (2025-07-20)**: The `claude-code-action@beta` is experiencing issues where the Claude CLI is not properly installed in the GitHub Actions environment. Until Anthropic fixes this issue, the workflow will not function correctly. You can still use Claude Code manually through the web interface.
+### Nox コマンド
 
-## License
+| コマンド | 説明 |
+| --- | --- |
+| `nox -s lint` | 静的解析 (Ruff) |
+| `nox -s format_code` | フォーマッタ実行 |
+| `nox -s typing` | 型チェック (Pyright) |
+| `nox -s test` | テスト一式 |
+| `nox -s security` | セキュリティチェック |
+| `nox -s docs` | ドキュメントビルド |
+| `nox -s ci` | CI 想定の全チェック |
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## ドキュメント
 
-## Acknowledgments
+`docs/` 配下には詳細な設定やガイドが整理されています。必要に応じて `nox -s docs` で静的サイトをビルドし、ブラウザで参照できます。
 
--   Built with modern Python tooling
--   Inspired by clean architecture principles
--   Designed for extensibility and maintainability
+## ライセンス
+
+本プロジェクトは MIT License の下で提供されています。
