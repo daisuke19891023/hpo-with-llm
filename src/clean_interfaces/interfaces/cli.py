@@ -1,9 +1,18 @@
 """CLI interface implementation using Typer."""
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 from clean_interfaces.hpo.configuration import (
     default_tuning_config,
@@ -16,7 +25,10 @@ from clean_interfaces.hpo.schemas import (
     HPOOptimizationResult,
     HPOReflectionResponse,
     HPORunConfig,
+    HPOTrialRequest,
+    HPOTrialResponse,
     ReflectionMode,
+    TrialObservation,
 )
 from clean_interfaces.models.io import WelcomeMessage
 
@@ -25,6 +37,76 @@ from .base import BaseInterface
 # Configure console for better test compatibility
 # Force terminal mode even in non-TTY environments
 console = Console(force_terminal=True, force_interactive=False)
+
+
+def _current_timestamp() -> str:
+    """Return a formatted timestamp for console messages."""
+    return datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _print_with_timestamp(
+    message: str,
+    *,
+    target_console: Console | None = None,
+) -> None:
+    """Emit a console message prefixed with a timestamp."""
+    active_console = target_console or console
+    active_console.print(f"[{_current_timestamp()}] {message}")
+    active_console.file.flush()
+
+
+def _create_progress() -> Progress:
+    """Create a Rich progress bar configured for CLI usage."""
+    return Progress(
+        SpinnerColumn(),
+        TextColumn("{task.description}"),
+        BarColumn(bar_width=None),
+        TextColumn("{task.completed}/{task.total} trials"),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        transient=False,
+    )
+
+
+class _ProgressTrialLogger:
+    """Trial logger that updates a Rich progress bar for CLI output."""
+
+    def __init__(self, progress: Progress, total_trials: int) -> None:
+        """Initialise the logger with its associated progress bar."""
+        self._progress = progress
+        self._total = max(total_trials, 1)
+        self._completed = 0
+        self._task_id = progress.add_task(
+            "Optimising hyperparameters",
+            total=self._total,
+        )
+
+    def record(
+        self,
+        *,
+        request: HPOTrialRequest,
+        response: HPOTrialResponse,
+        observation: TrialObservation,
+    ) -> None:
+        """Update progress and emit a timestamped status message."""
+        _ = request, response
+        self._completed += 1
+        self._progress.update(self._task_id, advance=1)
+
+        status = "completed successfully" if observation.succeeded else "failed"
+        score_text = f"{observation.score:.3f}" if observation.succeeded else "N/A"
+        parameter_summary = ", ".join(
+            f"{name}={value}" for name, value in observation.hyperparameters.items()
+        )
+        if not parameter_summary:
+            parameter_summary = "No parameters recorded"
+        timestamp = _current_timestamp()
+        self._progress.console.print(
+            f"[{timestamp}] Trial {self._completed}/{self._total} {status} "
+            f"with score {score_text}. Parameters: {parameter_summary}",
+        )
+        self._progress.console.file.flush()
 
 
 def _normalise_direction(direction: str) -> str:
@@ -54,33 +136,31 @@ def _display_reflection_result(
     reflection: HPOReflectionResponse,
 ) -> None:
     """Render reflection output to the console."""
-    console.print(
+    _print_with_timestamp(
         f"Executed {len(result.trials)} trials for task '{task.task_id}'.",
     )
     if result.best_trial is not None:
-        console.print(f"Best score: {result.best_trial.score:.3f}")
+        _print_with_timestamp(f"Best score: {result.best_trial.score:.3f}")
     else:
-        console.print("No successful trials were recorded.")
+        _print_with_timestamp("No successful trials were recorded.")
 
-    console.print(
+    _print_with_timestamp(
         f"Reflection summary ({reflection.mode.value}): {reflection.summary}",
     )
     if reflection.insights:
-        console.print("Insights:")
+        _print_with_timestamp("Insights:")
         for insight in reflection.insights:
-            console.print(f" - {insight.title}: {insight.detail}")
+            _print_with_timestamp(f" - {insight.title}: {insight.detail}")
     hyperparameters_msg = (
-        "Suggested hyperparameters: "
-        f"{reflection.suggested_hyperparameters}"
+        f"Suggested hyperparameters: {reflection.suggested_hyperparameters}"
     )
-    console.print(hyperparameters_msg)
+    _print_with_timestamp(hyperparameters_msg)
     if reflection.next_actions:
-        console.print("Next actions:")
+        _print_with_timestamp("Next actions:")
         for action in reflection.next_actions:
-            console.print(f" - {action}")
+            _print_with_timestamp(f" - {action}")
     if reflection.critique:
-        console.print(f"Critique: {reflection.critique}")
-    console.file.flush()
+        _print_with_timestamp(f"Critique: {reflection.critique}")
 
 
 RUN_HPO_TASK_OPTION = typer.Option(
@@ -215,23 +295,38 @@ class CLIInterface(BaseInterface):
 
         from clean_interfaces.app import create_hpo_orchestrator
 
-        orchestrator = create_hpo_orchestrator(trial_executor=default_trial_executor)
-        result = orchestrator.optimize(task, search_space, config)
+        _print_with_timestamp(
+            f"Starting hyperparameter tuning for task '{task.task_id}' with "
+            f"{config.max_trials} trial(s).",
+        )
 
-        console.print(
-            f"Executed {len(result.trials)} trials for task '{task.task_id}'.",
+        progress = _create_progress()
+        with progress:
+            trial_logger = _ProgressTrialLogger(
+                progress,
+                total_trials=config.max_trials,
+            )
+            orchestrator = create_hpo_orchestrator(
+                trial_executor=default_trial_executor,
+                trial_logger=trial_logger,
+            )
+            result = orchestrator.optimize(task, search_space, config)
+
+        _print_with_timestamp(
+            f"Completed hyperparameter tuning for task '{task.task_id}'.",
+        )
+        _print_with_timestamp(
+            f"Executed {len(result.trials)} trial(s) for task '{task.task_id}'.",
         )
         if result.best_trial is not None:
-            console.print(
+            _print_with_timestamp(
                 f"Best score: {result.best_trial.score:.3f}",
             )
-            console.print(
+            _print_with_timestamp(
                 f"Best hyperparameters: {result.best_trial.hyperparameters}",
             )
         else:
-            console.print("No successful trials were recorded.")
-
-        console.file.flush()
+            _print_with_timestamp("No successful trials were recorded.")
 
     def reflect_hpo(
         self,
@@ -262,11 +357,28 @@ class CLIInterface(BaseInterface):
             search_space=list(search_space),
             config=config,
         )
-        result, reflection = run_hpo_with_reflection(
-            execution_request,
-            trial_executor=default_trial_executor,
-            mode=reflection_mode,
+        _print_with_timestamp(
+            f"Starting hyperparameter tuning for task '{task.task_id}' "
+            f"with {config.max_trials} trial(s) before reflection.",
         )
+
+        progress = _create_progress()
+        with progress:
+            trial_logger = _ProgressTrialLogger(
+                progress,
+                total_trials=config.max_trials,
+            )
+            result, reflection = run_hpo_with_reflection(
+                execution_request,
+                trial_executor=default_trial_executor,
+                mode=reflection_mode,
+                trial_logger=trial_logger,
+            )
+
+        _print_with_timestamp(
+            f"Completed hyperparameter tuning for task '{task.task_id}'.",
+        )
+        _print_with_timestamp("Generating reflection summary...")
 
         _display_reflection_result(task, result, reflection)
 

@@ -106,7 +106,7 @@ class TestCLIInterface:
 
         assert result.exit_code == 0
         cleaned_output = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
-        assert "Executed 2 trials" in cleaned_output
+        assert "Executed 2 trial(s)" in cleaned_output
 
     def test_cli_reflect_command_emits_summary(self) -> None:
         """Ensure the reflect-hpo command runs and reports a summary."""
