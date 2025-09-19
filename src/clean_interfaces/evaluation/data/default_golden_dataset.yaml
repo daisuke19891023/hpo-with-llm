@@ -1,0 +1,99 @@
+classification:
+  - id: compliance_policy
+    label: true
+    metadata:
+      tooling: required
+      preferred_temperature: low
+      token_budget: long
+      alignment_threshold: 2.5
+      prefer_grounding: true
+  - id: faq_lookup
+    label: false
+    metadata:
+      tooling: avoid
+      preferred_temperature: low
+      token_budget: short
+      alignment_threshold: 2.0
+      prefer_keyword: true
+      prefer_concise: true
+  - id: brainstorming_session
+    label: true
+    metadata:
+      tooling: optional
+      preferred_temperature: high
+      token_budget: long
+      alignment_threshold: 0.5
+      favor_creativity: true
+  - id: structured_report
+    label: false
+    metadata:
+      tooling: required
+      preferred_temperature: low
+      token_budget: medium
+      alignment_threshold: 2.8
+      prefer_grounding: true
+      prefer_concise: true
+  - id: executive_summary
+    label: true
+    metadata:
+      tooling: optional
+      preferred_temperature: medium
+      token_budget: medium
+      alignment_threshold: 1.0
+file_search:
+  - id: compliance_policy
+    relevant_files:
+      - policies/compliance.md
+      - reports/audit_summary.pdf
+    metadata:
+      requires_tooling: true
+      penalty_noise:
+        - notes/random_brainstorm.txt
+      longform_bonus:
+        - briefings/regulatory_outlook.md
+  - id: faq_lookup
+    relevant_files:
+      - knowledge/faq_index.json
+    metadata:
+      prefers_keyword: true
+      penalty_noise:
+        - vector/embedding_store.bin
+      fallback:
+        - knowledge/faq_index.json
+  - id: brainstorming_session
+    relevant_files:
+      - ideas/brainstorming_guidelines.md
+      - notes/inspiration_list.txt
+    metadata:
+      prefer_creative: true
+      creative_noise:
+        - ideas/unfiltered_sketch.md
+  - id: structured_report
+    relevant_files:
+      - templates/report_structure.yaml
+      - data/financial_overview.csv
+    metadata:
+      requires_tooling: true
+      concise_trim: true
+      penalty_noise:
+        - notes/raw_dump.txt
+  - id: executive_summary
+    relevant_files:
+      - briefings/executive_overview.docx
+      - data/key_metrics.xlsx
+    metadata:
+      longform_bonus:
+        - slides/executive_appendix.pptx
+      penalty_noise:
+        - notes/detailed_appendix.txt
+      fallback:
+        - briefings/executive_overview.docx
+reference_plans:
+  - Enable vector search tooling with grounded compliance analysis and long-form outputs.
+  - For FAQ lookups avoid external tooling, keep temperature conservative, and favour keyword responses.
+  - Encourage creative brainstorming with higher temperatures and generous token budgets while minimising tooling.
+  - When producing structured reports, keep temperature low, leverage tool-enforced schemas, and stay concise.
+  - Executive summaries require balanced temperature, moderate token budgets, and selective tool usage for grounding.
+metadata:
+  name: synthetic_rag_benchmark
+  description: Synthetic evaluation harness capturing retrieval strategy trade-offs.

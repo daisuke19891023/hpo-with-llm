@@ -39,6 +39,7 @@ class TestRestAPIInterface:
         routes = [route.path for route in api.app.routes]  # type: ignore[attr-defined]
         assert "/health" in routes
         assert "/api/v1/welcome" in routes
+        assert "/api/v1/hpo/run" in routes
         assert "/" in routes  # Root redirect
 
     @patch("clean_interfaces.interfaces.restapi.uvicorn")
@@ -74,6 +75,43 @@ class TestRestAPIInterface:
 
             # Check that logger was used during initialization
             assert mock_logger.info.called
+
+    def test_restapi_hpo_run_endpoint_returns_result(self) -> None:
+        """Test that the HPO run endpoint returns optimization results."""
+        api = RestAPIInterface()
+        client = TestClient(api.app)
+
+        payload = {
+            "task": {"task_id": "test", "description": "Tune prompts"},
+            "search_space": [
+                {
+                    "name": "temperature",
+                    "param_type": "float",
+                    "lower": 0.0,
+                    "upper": 1.0,
+                },
+                {
+                    "name": "max_output_tokens",
+                    "param_type": "int",
+                    "lower": 32,
+                    "upper": 128,
+                    "step": 32,
+                },
+                {
+                    "name": "use_tooling",
+                    "param_type": "bool",
+                },
+            ],
+            "config": {"max_trials": 2, "direction": "maximize", "random_seed": 9},
+        }
+
+        response = client.post("/api/v1/hpo/run", json=payload)
+        assert response.status_code == 200
+
+        body = response.json()
+        assert body["task"]["task_id"] == "test"
+        assert len(body["trials"]) == 2
+        assert body["best_trial"] is not None
 
 
 class TestRestAPISwaggerUIEndpoints:
