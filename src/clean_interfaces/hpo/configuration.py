@@ -358,11 +358,12 @@ def build_application_plan(
                     ),
                 )
                 updates.updates.append(
-                    YAMLKeyUpdate(key_path=key_path, value=value)
+                    YAMLKeyUpdate(key_path=key_path, value=value),
                 )
             case _:
                 msg = (
-                    "Unsupported parameter location encountered during plan construction"
+                    "Unsupported parameter location encountered during plan "
+                    "construction"
                 )
                 raise TypeError(msg)
 

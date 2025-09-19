@@ -241,7 +241,11 @@ class OptunaSearchBackend(BaseComponent):
             sampler = None
             study_kwargs = {}
 
-        if sampler is None and config.random_seed is not None and TPESampler is not None:
+        if (
+            sampler is None
+            and config.random_seed is not None
+            and TPESampler is not None
+        ):
             sampler = TPESampler(seed=config.random_seed)
 
         if sampler is not None:
