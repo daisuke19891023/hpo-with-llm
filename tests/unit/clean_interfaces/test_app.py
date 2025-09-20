@@ -14,6 +14,7 @@ from clean_interfaces.app import (
     run_hpo_with_reflection,
 )
 from clean_interfaces.hpo.backends import InMemorySearchBackend
+from clean_interfaces.hpo.reflection import ReflectionAgent
 from clean_interfaces.hpo.schemas import (
     CodingTask,
     HPOExecutionRequest,
@@ -22,6 +23,7 @@ from clean_interfaces.hpo.schemas import (
     HPOTrialResponse,
     HyperparameterSpec,
     HyperparameterType,
+    HPOReflectionResponse,
     ReflectionMode,
 )
 
@@ -255,6 +257,46 @@ class TestApplication:
         assert result.trials
         assert reflection.summary
         assert reflection.mode is ReflectionMode.BASELINE
+
+    def test_run_hpo_with_reflection_accepts_custom_agent(self) -> None:
+        """A supplied reflection agent should be used instead of defaults."""
+        request = HPOExecutionRequest(
+            task=CodingTask(task_id="reflect", description="Injected agent"),
+            search_space=[
+                HyperparameterSpec(
+                    name="temperature",
+                    param_type=HyperparameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ],
+            config=HPORunConfig(max_trials=1),
+        )
+
+        def executor(request: HPOTrialRequest) -> HPOTrialResponse:  # noqa: ARG001
+            return HPOTrialResponse(score=0.7)
+
+        custom_response = HPOReflectionResponse(
+            mode=ReflectionMode.BASELINE,
+            summary="custom",
+            suggested_hyperparameters={"temperature": 0.5},
+        )
+        custom_agent = MagicMock(spec=ReflectionAgent)
+        custom_agent.reflect.return_value = custom_response
+
+        with patch("clean_interfaces.app.create_reflection_agent") as mock_factory:
+            result, reflection = run_hpo_with_reflection(
+                request,
+                trial_executor=executor,
+                backend=InMemorySearchBackend(),
+                mode=ReflectionMode.BASELINE,
+                reflection_agent=custom_agent,
+            )
+
+        mock_factory.assert_not_called()
+        custom_agent.reflect.assert_called_once()
+        assert result.trials
+        assert reflection is custom_response
 
     @patch("clean_interfaces.app.load_dotenv")
     @patch("clean_interfaces.app.configure_logging")
