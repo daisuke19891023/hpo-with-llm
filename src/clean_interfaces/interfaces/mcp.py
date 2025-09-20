@@ -4,6 +4,8 @@ from fastmcp import FastMCP
 
 from clean_interfaces.hpo.configuration import default_tuning_config
 from clean_interfaces.hpo.executors import DefaultTrialExecutor
+
+from clean_interfaces.hpo.reflection import ReflectionAgent
 from clean_interfaces.hpo.schemas import (
     CodingTask,
     HPOExecutionRequest,
@@ -49,6 +51,7 @@ class MCPInterface(BaseInterface):
             mode: str = "baseline",
             max_trials: int = 5,
             direction: str = "maximize",
+            reflection_agent: ReflectionAgent | None = None,
         ) -> dict[str, object]:
             """Execute HPO trials and return a reflection summary."""
             normalized_direction = direction.lower()
@@ -84,6 +87,7 @@ class MCPInterface(BaseInterface):
                 request,
                 trial_executor=trial_executor,
                 mode=reflection_mode,
+                reflection_agent=reflection_agent,
             )
 
             return {
@@ -117,6 +121,7 @@ class MCPInterface(BaseInterface):
         mode: str = "baseline",
         max_trials: int = 5,
         direction: str = "maximize",
+        reflection_agent: ReflectionAgent | None = None,
     ) -> dict[str, object]:
         """Execute the reflection tool using the configured FastMCP app."""
         return self._reflect_tool(
@@ -124,6 +129,7 @@ class MCPInterface(BaseInterface):
             mode=mode,
             max_trials=max_trials,
             direction=direction,
+            reflection_agent=reflection_agent,
         )
 
     def run(self) -> None:

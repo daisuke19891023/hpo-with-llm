@@ -14,6 +14,7 @@ from clean_interfaces.app import (
     run_hpo_with_reflection,
 )
 from clean_interfaces.hpo.backends import InMemorySearchBackend
+from clean_interfaces.hpo.reflection import ReflectionAgent
 from clean_interfaces.hpo.schemas import (
     CodingTask,
     HPOExecutionRequest,
@@ -22,6 +23,7 @@ from clean_interfaces.hpo.schemas import (
     HPOTrialResponse,
     HyperparameterSpec,
     HyperparameterType,
+    HPOReflectionResponse,
     ReflectionMode,
 )
 
@@ -82,6 +84,50 @@ class TestApplication:
         # Verify interface was created
         mock_factory.create_from_settings.assert_called_once()
         assert app.interface == mock_interface
+
+    @patch("clean_interfaces.app.load_dotenv")
+    @patch("clean_interfaces.app.configure_logging")
+    @patch("clean_interfaces.app.get_logger")
+    @patch("clean_interfaces.app.get_settings")
+    @patch("clean_interfaces.app.get_interface_settings")
+    @patch("clean_interfaces.app.InterfaceFactory")
+    def test_application_initialization_with_custom_factory(
+        self,
+        mock_factory_class: MagicMock,
+        mock_get_interface_settings: MagicMock,
+        mock_get_settings: MagicMock,
+        mock_get_logger: MagicMock,
+        mock_configure_logging: MagicMock,  # noqa: ARG002
+        mock_load_dotenv: MagicMock,  # noqa: ARG002
+    ) -> None:
+        """Custom interface factories should be used when provided."""
+
+        mock_factory_class.return_value = MagicMock()
+
+        mock_settings = MagicMock()
+        mock_settings.log_level = "INFO"
+        mock_settings.log_format = "json"
+        mock_settings.log_file_path = None
+        mock_get_settings.return_value = mock_settings
+
+        mock_interface_settings = MagicMock()
+        mock_interface_settings.model_dump.return_value = {"interface_type": "custom"}
+        mock_get_interface_settings.return_value = mock_interface_settings
+
+        mock_interface = MagicMock()
+        mock_interface.name = "Custom"
+        custom_factory = MagicMock()
+        custom_factory.create_from_settings.return_value = mock_interface
+
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+
+        app = Application(interface_factory=custom_factory)
+
+        custom_factory.create_from_settings.assert_called_once()
+        assert app.interface is mock_interface
+        assert app.interface_factory is custom_factory
+        mock_factory_class.assert_not_called()
 
     @patch("clean_interfaces.app.load_dotenv")
     @patch("clean_interfaces.app.configure_logging")
@@ -256,6 +302,46 @@ class TestApplication:
         assert reflection.summary
         assert reflection.mode is ReflectionMode.BASELINE
 
+    def test_run_hpo_with_reflection_accepts_custom_agent(self) -> None:
+        """A supplied reflection agent should be used instead of defaults."""
+        request = HPOExecutionRequest(
+            task=CodingTask(task_id="reflect", description="Injected agent"),
+            search_space=[
+                HyperparameterSpec(
+                    name="temperature",
+                    param_type=HyperparameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ],
+            config=HPORunConfig(max_trials=1),
+        )
+
+        def executor(request: HPOTrialRequest) -> HPOTrialResponse:  # noqa: ARG001
+            return HPOTrialResponse(score=0.7)
+
+        custom_response = HPOReflectionResponse(
+            mode=ReflectionMode.BASELINE,
+            summary="custom",
+            suggested_hyperparameters={"temperature": 0.5},
+        )
+        custom_agent = MagicMock(spec=ReflectionAgent)
+        custom_agent.reflect.return_value = custom_response
+
+        with patch("clean_interfaces.app.create_reflection_agent") as mock_factory:
+            result, reflection = run_hpo_with_reflection(
+                request,
+                trial_executor=executor,
+                backend=InMemorySearchBackend(),
+                mode=ReflectionMode.BASELINE,
+                reflection_agent=custom_agent,
+            )
+
+        mock_factory.assert_not_called()
+        custom_agent.reflect.assert_called_once()
+        assert result.trials
+        assert reflection is custom_response
+
     @patch("clean_interfaces.app.load_dotenv")
     @patch("clean_interfaces.app.configure_logging")
     @patch("clean_interfaces.app.get_logger")
@@ -319,7 +405,7 @@ def test_create_app() -> None:
         result = create_app()
 
         assert result == mock_app
-        mock_app_class.assert_called_once_with(dotenv_path=None)
+        mock_app_class.assert_called_once_with(dotenv_path=None, interface_factory=None)
 
 
 def test_create_app_with_dotenv() -> None:
@@ -334,7 +420,10 @@ def test_create_app_with_dotenv() -> None:
         result = create_app(dotenv_path=dotenv_path)
 
         assert result == mock_app
-        mock_app_class.assert_called_once_with(dotenv_path=dotenv_path)
+        mock_app_class.assert_called_once_with(
+            dotenv_path=dotenv_path,
+            interface_factory=None,
+        )
 
 
 def test_run_app() -> None:
@@ -345,7 +434,10 @@ def test_run_app() -> None:
 
         run_app()
 
-        mock_create_app.assert_called_once_with(dotenv_path=None)
+        mock_create_app.assert_called_once_with(
+            dotenv_path=None,
+            interface_factory=None,
+        )
         mock_app.run.assert_called_once()
 
 
@@ -360,5 +452,8 @@ def test_run_app_with_dotenv() -> None:
 
         run_app(dotenv_path=dotenv_path)
 
-        mock_create_app.assert_called_once_with(dotenv_path=dotenv_path)
+        mock_create_app.assert_called_once_with(
+            dotenv_path=dotenv_path,
+            interface_factory=None,
+        )
         mock_app.run.assert_called_once()

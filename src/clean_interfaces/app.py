@@ -28,7 +28,11 @@ from clean_interfaces.utils.settings import get_interface_settings, get_settings
 class Application:
     """Main application class that orchestrates components."""
 
-    def __init__(self, dotenv_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        dotenv_path: Path | None = None,
+        interface_factory: InterfaceFactory | None = None,
+    ) -> None:
         """Initialize the application.
 
         Args:
@@ -54,7 +58,7 @@ class Application:
         self.logger = get_logger(__name__)
 
         # Initialize interface
-        self.interface_factory = InterfaceFactory()
+        self.interface_factory = interface_factory or InterfaceFactory()
         self.interface = self.interface_factory.create_from_settings()
 
         self.logger.info(
@@ -145,6 +149,7 @@ def run_hpo_with_reflection(
     backend: HPOSearchBackend | None = None,
     mode: ReflectionMode = ReflectionMode.BASELINE,
     trial_logger: HPOTrialLogger | None = None,
+    reflection_agent: ReflectionAgent | None = None,
 ) -> tuple[HPOOptimizationResult, HPOReflectionResponse]:
     """Execute an HPO experiment and produce a reflection summary."""
     result = run_hpo_experiment(
@@ -153,7 +158,7 @@ def run_hpo_with_reflection(
         backend=backend,
         trial_logger=trial_logger,
     )
-    agent = create_reflection_agent()
+    agent = reflection_agent or create_reflection_agent()
     reflection_request = HPOReflectionRequest(
         task=request.task,
         config=request.config,
@@ -165,7 +170,11 @@ def run_hpo_with_reflection(
     return result, reflection
 
 
-def create_app(dotenv_path: Path | None = None) -> Application:
+def create_app(
+    dotenv_path: Path | None = None,
+    *,
+    interface_factory: InterfaceFactory | None = None,
+) -> Application:
     """Create an application instance.
 
     Args:
@@ -175,15 +184,25 @@ def create_app(dotenv_path: Path | None = None) -> Application:
         Application: Configured application instance
 
     """
-    return Application(dotenv_path=dotenv_path)
+    return Application(
+        dotenv_path=dotenv_path,
+        interface_factory=interface_factory,
+    )
 
 
-def run_app(dotenv_path: Path | None = None) -> None:
+def run_app(
+    dotenv_path: Path | None = None,
+    *,
+    interface_factory: InterfaceFactory | None = None,
+) -> None:
     """Create and run the application.
 
     Args:
         dotenv_path: Optional path to .env file to load
 
     """
-    app = create_app(dotenv_path=dotenv_path)
+    app = create_app(
+        dotenv_path=dotenv_path,
+        interface_factory=interface_factory,
+    )
     app.run()
