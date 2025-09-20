@@ -145,6 +145,7 @@ def run_hpo_with_reflection(
     backend: HPOSearchBackend | None = None,
     mode: ReflectionMode = ReflectionMode.BASELINE,
     trial_logger: HPOTrialLogger | None = None,
+    reflection_agent: ReflectionAgent | None = None,
 ) -> tuple[HPOOptimizationResult, HPOReflectionResponse]:
     """Execute an HPO experiment and produce a reflection summary."""
     result = run_hpo_experiment(
@@ -153,7 +154,7 @@ def run_hpo_with_reflection(
         backend=backend,
         trial_logger=trial_logger,
     )
-    agent = create_reflection_agent()
+    agent = reflection_agent or create_reflection_agent()
     reflection_request = HPOReflectionRequest(
         task=request.task,
         config=request.config,

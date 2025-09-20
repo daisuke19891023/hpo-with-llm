@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -30,6 +31,7 @@ from clean_interfaces.hpo.schemas import (
     ReflectionMode,
     TrialObservation,
 )
+from clean_interfaces.hpo.reflection import ReflectionAgent
 from clean_interfaces.models.io import WelcomeMessage
 
 from .base import BaseInterface
@@ -335,6 +337,9 @@ class CLIInterface(BaseInterface):
         direction: str = REFLECT_DIRECTION_OPTION,
         mode: str = REFLECT_MODE_OPTION,
         search_space_config: Path | None = REFLECT_SEARCH_SPACE_OPTION,
+        reflection_agent: Annotated[
+            ReflectionAgent | None, typer.Option(hidden=True)
+        ] = None,
     ) -> None:
         """Run an HPO loop and produce a reflection summary."""
         normalized_direction = _normalise_direction(direction)
@@ -373,6 +378,7 @@ class CLIInterface(BaseInterface):
                 trial_executor=default_trial_executor,
                 mode=reflection_mode,
                 trial_logger=trial_logger,
+                reflection_agent=reflection_agent,
             )
 
         _print_with_timestamp(
