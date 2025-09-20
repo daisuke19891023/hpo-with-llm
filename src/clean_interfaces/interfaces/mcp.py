@@ -3,7 +3,8 @@
 from fastmcp import FastMCP
 
 from clean_interfaces.hpo.configuration import default_tuning_config
-from clean_interfaces.hpo.executors import default_trial_executor
+from clean_interfaces.hpo.executors import DefaultTrialExecutor
+
 from clean_interfaces.hpo.reflection import ReflectionAgent
 from clean_interfaces.hpo.schemas import (
     CodingTask,
@@ -81,9 +82,10 @@ class MCPInterface(BaseInterface):
 
             from clean_interfaces.app import run_hpo_with_reflection
 
+            trial_executor = DefaultTrialExecutor()
             result, reflection = run_hpo_with_reflection(
                 request,
-                trial_executor=default_trial_executor,
+                trial_executor=trial_executor,
                 mode=reflection_mode,
                 reflection_agent=reflection_agent,
             )

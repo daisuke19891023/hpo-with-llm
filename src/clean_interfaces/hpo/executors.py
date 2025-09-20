@@ -326,116 +326,156 @@ def _build_trial_plan(temperature: float, max_tokens: int, use_tooling: bool) ->
     return " ".join(sections)
 
 
-def default_trial_executor(request: HPOTrialRequest) -> HPOTrialResponse:
-    """Deterministic executor combining metric computation with judge scoring."""
-    params = request.trial.hyperparameters
-    temperature = float(params.get("temperature", 0.5))
-    max_tokens = int(params.get("max_output_tokens", 256))
-    use_tooling = bool(params.get("use_tooling", False))
+class DefaultTrialExecutor:
+    """Callable executor that evaluates trials using a golden dataset."""
 
-    plan = build_application_plan(request.search_space, params)
-    plan_metadata = plan.to_metadata()
+    def __init__(
+        self,
+        *,
+        dataset: GoldenDataset = _DEFAULT_GOLDEN_DATASET,
+        evaluation_service: EvaluationService | None = None,
+    ) -> None:
+        self._dataset = dataset
+        if evaluation_service is None:
+            indicators: list[EvaluationIndicator] = [ClassificationIndicator()]
+            if dataset.file_search:
+                indicators.append(FileSearchIndicator())
+            evaluation_service = EvaluationService(
+                dataset,
+                indicators=tuple(indicators),
+            )
+        self._evaluation_service = evaluation_service
 
-    classification_predictions, alignment_details = _predict_outcomes(
-        _DEFAULT_GOLDEN_DATASET,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        use_tooling=use_tooling,
-    )
+    @property
+    def dataset(self) -> GoldenDataset:
+        """Return the dataset used by the executor."""
+        return self._dataset
 
-    alignment_by_id: dict[str, dict[str, float]] = {}
-    for detail in alignment_details:
-        identifier = detail.get("id")
-        alignment = detail.get("alignment")
-        threshold = detail.get("threshold")
-        if not isinstance(identifier, str):
-            continue
-        alignment_value = (
-            float(alignment) if isinstance(alignment, (int, float)) else 0.0
-        )
-        threshold_value = (
-            float(threshold) if isinstance(threshold, (int, float)) else 1.0
-        )
-        alignment_by_id[identifier] = {
-            "alignment": alignment_value,
-            "threshold": threshold_value,
-        }
+    @property
+    def evaluation_service(self) -> EvaluationService:
+        """Return the evaluation service used by the executor."""
+        return self._evaluation_service
 
-    file_search_predictions: list[FileSearchPrediction] = []
-    file_search_details: list[dict[str, object]] = []
-    if _DEFAULT_GOLDEN_DATASET.file_search:
-        file_search_predictions, file_search_details = _simulate_file_search(
-            _DEFAULT_GOLDEN_DATASET,
-            alignment_by_id=alignment_by_id,
+    def __call__(self, request: HPOTrialRequest) -> HPOTrialResponse:
+        """Execute a trial evaluation using the configured dataset."""
+        dataset = self._dataset
+        evaluation_service = self._evaluation_service
+
+        params = request.trial.hyperparameters
+        temperature = float(params.get("temperature", 0.5))
+        max_tokens = int(params.get("max_output_tokens", 256))
+        use_tooling = bool(params.get("use_tooling", False))
+
+        plan = build_application_plan(request.search_space, params)
+        plan_metadata = plan.to_metadata()
+
+        classification_predictions, alignment_details = _predict_outcomes(
+            dataset,
             temperature=temperature,
             max_tokens=max_tokens,
             use_tooling=use_tooling,
         )
 
-    plan_text = _build_trial_plan(temperature, max_tokens, use_tooling)
-
-    indicators: list[EvaluationIndicator] = [ClassificationIndicator()]
-    indicator_payload: dict[str, object] = {
-        ClassificationIndicator.name: classification_predictions,
-    }
-    file_indicator_name: str | None = None
-
-    if file_search_predictions:
-        file_indicator = FileSearchIndicator()
-        indicators.append(file_indicator)
-        file_indicator_name = file_indicator.name
-        indicator_payload[file_indicator_name] = file_search_predictions
-
-    evaluation_service = EvaluationService(
-        _DEFAULT_GOLDEN_DATASET,
-        indicators=tuple(indicators),
-    )
-    summary = evaluation_service.evaluate(indicator_payload, plan=plan_text)
-    summary_payload = summary.to_dict()
-
-    evaluation_inputs: dict[str, object] = {
-        "classification": {
-            "labels": list(_DEFAULT_GOLDEN_DATASET.labels),
-            "predictions": list(classification_predictions),
-            "alignment": alignment_details,
-        },
-    }
-
-    if file_indicator_name is not None:
-        evaluation_inputs[file_indicator_name] = [
-            {
-                "query_id": prediction.query_id,
-                "retrieved_files": list(prediction.retrieved_files),
-                "details": detail,
-            }
-            for prediction, detail in zip(
-                file_search_predictions,
-                file_search_details,
-                strict=False,
+        alignment_by_id: dict[str, dict[str, float]] = {}
+        for detail in alignment_details:
+            identifier = detail.get("id")
+            alignment = detail.get("alignment")
+            threshold = detail.get("threshold")
+            if not isinstance(identifier, str):
+                continue
+            alignment_value = (
+                float(alignment) if isinstance(alignment, (int, float)) else 0.0
             )
-        ]
+            threshold_value = (
+                float(threshold) if isinstance(threshold, (int, float)) else 1.0
+            )
+            alignment_by_id[identifier] = {
+                "alignment": alignment_value,
+                "threshold": threshold_value,
+            }
 
-    metadata = DEFAULT_EXECUTOR_METADATA.copy()
-    metadata["application_plan"] = plan_metadata
-    metadata["evaluation"] = {
-        "dataset": _DEFAULT_GOLDEN_DATASET.metadata.get("name", "unknown_dataset"),
-        "summary": summary_payload,
-        "inputs": evaluation_inputs,
-        "plan": plan_text,
-    }
+        file_search_predictions: list[FileSearchPrediction] = []
+        file_search_details: list[dict[str, object]] = []
+        if dataset.file_search:
+            file_search_predictions, file_search_details = _simulate_file_search(
+                dataset,
+                alignment_by_id=alignment_by_id,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                use_tooling=use_tooling,
+            )
 
-    notes = (
-        "Composite score averages indicator metrics across classification "
-        "and file search alongside the heuristic LLM judge evaluating the "
-        "generated plan."
+        plan_text = _build_trial_plan(temperature, max_tokens, use_tooling)
+
+        indicator_payload: dict[str, object] = {
+            ClassificationIndicator.name: classification_predictions,
+        }
+        file_indicator_name: str | None = None
+
+        if file_search_predictions:
+            file_indicator_name = FileSearchIndicator.name
+            indicator_payload[file_indicator_name] = file_search_predictions
+
+        summary = evaluation_service.evaluate(indicator_payload, plan=plan_text)
+        summary_payload = summary.to_dict()
+
+        evaluation_inputs: dict[str, object] = {
+            "classification": {
+                "labels": list(dataset.labels),
+                "predictions": list(classification_predictions),
+                "alignment": alignment_details,
+            },
+        }
+
+        if file_indicator_name is not None:
+            evaluation_inputs[file_indicator_name] = [
+                {
+                    "query_id": prediction.query_id,
+                    "retrieved_files": list(prediction.retrieved_files),
+                    "details": detail,
+                }
+                for prediction, detail in zip(
+                    file_search_predictions,
+                    file_search_details,
+                    strict=False,
+                )
+            ]
+
+        metadata = DEFAULT_EXECUTOR_METADATA.copy()
+        metadata["application_plan"] = plan_metadata
+        metadata["evaluation"] = {
+            "dataset": dataset.metadata.get("name", "unknown_dataset"),
+            "summary": summary_payload,
+            "inputs": evaluation_inputs,
+            "plan": plan_text,
+        }
+
+        notes = (
+            "Composite score averages indicator metrics across classification "
+            "and file search alongside the heuristic LLM judge evaluating the "
+            "generated plan."
+        )
+
+        return HPOTrialResponse(
+            score=summary.composite_score,
+            succeeded=True,
+            metadata=metadata,
+            notes=notes,
+        )
+
+
+def default_trial_executor(
+    request: HPOTrialRequest,
+    *,
+    dataset: GoldenDataset = _DEFAULT_GOLDEN_DATASET,
+    evaluation_service: EvaluationService | None = None,
+) -> HPOTrialResponse:
+    """Evaluate a trial using the default executor configuration."""
+    executor = DefaultTrialExecutor(
+        dataset=dataset,
+        evaluation_service=evaluation_service,
     )
-
-    return HPOTrialResponse(
-        score=summary.composite_score,
-        succeeded=True,
-        metadata=metadata,
-        notes=notes,
-    )
+    return executor(request)
 
 
-__all__ = ["default_trial_executor"]
+__all__ = ["DefaultTrialExecutor", "default_trial_executor"]

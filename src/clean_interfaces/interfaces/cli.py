@@ -19,7 +19,7 @@ from clean_interfaces.hpo.configuration import (
     default_tuning_config,
     load_tuning_config,
 )
-from clean_interfaces.hpo.executors import default_trial_executor
+from clean_interfaces.hpo.executors import DefaultTrialExecutor
 from clean_interfaces.hpo.schemas import (
     CodingTask,
     HPOExecutionRequest,
@@ -308,8 +308,9 @@ class CLIInterface(BaseInterface):
                 progress,
                 total_trials=config.max_trials,
             )
+            trial_executor = DefaultTrialExecutor()
             orchestrator = create_hpo_orchestrator(
-                trial_executor=default_trial_executor,
+                trial_executor=trial_executor,
                 trial_logger=trial_logger,
             )
             result = orchestrator.optimize(task, search_space, config)
@@ -373,9 +374,10 @@ class CLIInterface(BaseInterface):
                 progress,
                 total_trials=config.max_trials,
             )
+            trial_executor = DefaultTrialExecutor()
             result, reflection = run_hpo_with_reflection(
                 execution_request,
-                trial_executor=default_trial_executor,
+                trial_executor=trial_executor,
                 mode=reflection_mode,
                 trial_logger=trial_logger,
                 reflection_agent=reflection_agent,
