@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from clean_interfaces.hpo.executors import default_trial_executor
+from clean_interfaces.evaluation.datasets import ClassificationRecord, GoldenDataset
+from clean_interfaces.hpo.executors import DefaultTrialExecutor, default_trial_executor
 from clean_interfaces.hpo.schemas import (
     CodingTask,
     HPOTrialRequest,
@@ -74,4 +75,42 @@ def test_default_executor_returns_evaluation_metadata() -> None:
     assert "plan" in evaluation
     assert isinstance(evaluation["plan"], str)
     assert response.score == pytest.approx(summary["composite_score"])
+
+
+def test_default_executor_accepts_custom_dataset() -> None:
+    """Custom datasets should be usable with the default executor wrapper."""
+    dataset = GoldenDataset(
+        classification=(
+            ClassificationRecord(
+                record_id="example",
+                label=True,
+                metadata={"alignment_threshold": 0.0},
+            ),
+        ),
+        metadata={"name": "custom_dataset"},
+    )
+    executor = DefaultTrialExecutor(dataset=dataset)
+
+    request = HPOTrialRequest(
+        task=CodingTask(task_id="custom", description="Custom task"),
+        trial=HPOSuggestedTrial(
+            trial_id="0",
+            hyperparameters={
+                "temperature": 0.6,
+                "max_output_tokens": 512,
+                "use_tooling": False,
+            },
+        ),
+        search_space=_search_space(),
+        history=(),
+    )
+
+    response = executor(request)
+
+    evaluation = response.metadata.get("evaluation")
+    assert evaluation is not None
+    assert evaluation["dataset"] == "custom_dataset"
+    classification_inputs = evaluation["inputs"]["classification"]
+    assert classification_inputs["labels"] == [record.label for record in dataset.classification]
+    assert len(classification_inputs["predictions"]) == dataset.size
 

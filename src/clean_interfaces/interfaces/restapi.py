@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from clean_interfaces.hpo.executors import default_trial_executor
+from clean_interfaces.hpo.executors import DefaultTrialExecutor
 from clean_interfaces.hpo.schemas import HPOExecutionRequest, HPOExecutionResponse
 from clean_interfaces.models.api import (
     HealthResponse,
@@ -90,9 +90,10 @@ class RestAPIInterface(BaseInterface):
             """Launch a hyperparameter optimization run."""
             from clean_interfaces.app import run_hpo_experiment
 
+            trial_executor = DefaultTrialExecutor()
             result = run_hpo_experiment(
                 request,
-                trial_executor=default_trial_executor,
+                trial_executor=trial_executor,
             )
             return HPOExecutionResponse(**result.model_dump())
 

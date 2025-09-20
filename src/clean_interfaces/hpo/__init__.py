@@ -10,7 +10,7 @@ from .configuration import (
     default_tuning_config,
     load_tuning_config,
 )
-from .executors import default_trial_executor
+from .executors import DefaultTrialExecutor, default_trial_executor
 from .logging import CSVTrialLogger, HPOTrialLogger
 from .orchestrator import HPOOrchestrator, TrialExecutorProtocol
 from .reflection import ReflectionAgent
@@ -52,6 +52,7 @@ __all__ = [
     "TrialObservation",
     "TuningConfig",
     "TuningParameterDefinition",
+    "DefaultTrialExecutor",
     "build_application_plan",
     "default_trial_executor",
     "default_tuning_config",
